@@ -23,7 +23,7 @@
   [{:keys [field/optional field/type field/cardinality]}]
   (let [inner-type (if optional
                      (get-type-reference type)
-                     (list 'not-null (get-type-reference type)))]
+                     (list 'non-null (get-type-reference type)))]
     (if cardinality
       (if(and (= (first cardinality) 1)
               (or (nil? (second cardinality))
