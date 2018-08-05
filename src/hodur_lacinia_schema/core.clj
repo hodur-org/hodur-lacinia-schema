@@ -25,11 +25,12 @@
                      (get-type-reference type)
                      (list 'not-null (get-type-reference type)))]
     (if cardinality
-      (if (and (= (first cardinality) 1)
-               (= (second cardinality) 1))
+      (if(and (= (first cardinality) 1)
+              (or (nil? (second cardinality))
+                  (= (second cardinality) 1)))
         inner-type
         (list 'list inner-type))
-      (list 'list inner-type))))
+      inner-type)))
 
 (defn ^:private get-param-type
   [{:keys [param/optional param/type]}]
