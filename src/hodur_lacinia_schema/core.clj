@@ -177,7 +177,8 @@
              (not [?e :type/union true])
              (not [?e :lacinia/query true])
              (not [?e :lacinia/mutation true])
-             (not [?e :lacinia/subscription true])]
+             (not [?e :lacinia/subscription true])
+             (not [?e :lacinia/input true])]
     :reducer reduce-type}
 
    :interfaces
