@@ -1,5 +1,7 @@
 (ns hodur-lacinia-schema.core
-  (:require [camel-snake-kebab.core :refer [->kebab-case-string]]
+  (:require [camel-snake-kebab.core :refer [->camelCaseKeyword
+                                            ->PascalCaseKeyword
+                                            ->SCREAMING_SNAKE_CASE_KEYWORD]]
             [datascript.core :as d]
             [datascript.query-v3 :as q]))
 
@@ -16,7 +18,7 @@
 (defn ^:private get-type-reference
   [{:keys [type/name type/nature]}]
   (if (= :user nature)
-    (keyword name)
+    (->PascalCaseKeyword name)
     (get primitive-type-map name)))
 
 (defn ^:private get-field-type
@@ -25,9 +27,9 @@
                      (get-type-reference type)
                      (list 'non-null (get-type-reference type)))]
     (if cardinality
-      (if(and (= (first cardinality) 1)
-              (or (nil? (second cardinality))
-                  (= (second cardinality) 1)))
+      (if (and (= (first cardinality) 1)
+               (or (nil? (second cardinality))
+                   (= (second cardinality) 1)))
         inner-type
         (list 'list inner-type))
       inner-type)))
@@ -36,20 +38,23 @@
   [{:keys [param/optional param/type]}]
   (if optional
     (get-type-reference type)
-    (list 'not-null (get-type-reference type))))
+    (list 'non-null (get-type-reference type))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn ^:private parse-param
-  [{:keys [param/doc param/deprecation] :as param}]
+  [{:keys [param/doc param/deprecation param/default] :as param}]
   (cond-> {:type (get-param-type param)}
+    default     (assoc :default-value default)
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)))
 
 (defn ^:private parse-params
   [params]
-  (reduce (fn [m {:keys [param/name] :as param}]
-            (assoc m (keyword name) (parse-param param)))
+  (reduce (fn [m {:keys [param/name lacinia/tag] :as param}]
+            (if tag
+              (assoc m (->camelCaseKeyword name) (parse-param param))
+              m))
           {} params))
 
 (defn ^:private parse-field
@@ -64,13 +69,15 @@
 
 (defn ^:private parse-fields
   [fields]
-  (reduce (fn [m {:keys [field/name] :as field}]
-            (assoc m (keyword name) (parse-field field)))
+  (reduce (fn [m {:keys [field/name lacinia/tag] :as field}]
+            (if tag
+              (assoc m (->camelCaseKeyword name) (parse-field field))
+              m))
           {} fields))
 
 (defn ^:private parse-enum-field
   [{:keys [field/name field/doc field/deprecation] :as field}]
-  (cond-> {:enum-value (keyword name)}
+  (cond-> {:enum-value (->SCREAMING_SNAKE_CASE_KEYWORD name)}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)))
 
@@ -82,7 +89,7 @@
 
 (defn ^:private parse-union-field
   [{:keys [field/name] :as field}]
-  (keyword name))
+  (->PascalCaseKeyword name))
 
 (defn ^:private parse-union-fields
   [fields]
@@ -117,26 +124,28 @@
   [m {:keys [field/_parent] :as t}]
   (->> _parent
        (sort-by :field/name)
-       (reduce (fn [f-m field]
-                 (assoc f-m (-> field :field/name keyword) (parse-field field)))
+       (reduce (fn [f-m {:keys [lacinia/tag] :as field}]
+                 (if tag
+                   (assoc f-m (-> field :field/name ->camelCaseKeyword) (parse-field field))
+                   f-m))
                m)))
 
 (defn ^:private reduce-type
   [m {:keys [type/name] :as t}]
   (assoc m
-         (keyword name)
+         (->PascalCaseKeyword name)
          (parse-type t)))
 
 (defn ^:private reduce-enum
   [m {:keys [type/name] :as t}]
   (assoc m
-         (keyword name)
+         (->PascalCaseKeyword name)
          (parse-enum t)))
 
 (defn ^:private reduce-union
   [m {:keys [type/name] :as t}]
   (assoc m
-         (keyword name)
+         (->PascalCaseKeyword name)
          (parse-union t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -260,7 +269,10 @@
                   ^{:type Integer
                     :optional true
                     :doc "Play time, in minutes, for a typical game."}
-                  play_time]
+                  play-time
+                  ^{:type Float
+                    :lacinia/resolve :field/resolver}
+                  calculated-field]
 
                  ^:interface
                  Player
@@ -288,12 +300,14 @@
                     :lacinia/resolve :query/game-by-id}
                   game_by_id
                   [^{:type ID
-                     :optional true} id]
+                     :optional true
+                     :default 3} id]
                   ^{:type SearchResult
                     :cardinality [0 n]}
                   search
                   [^String term]]]))
 
-    (schema conn)
-    
+    (def s (schema conn))
+
+    s
     ))
