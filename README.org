@@ -1,0 +1,202 @@
+#+TITLE:   Hodur Lacinia Schema
+#+AUTHOR:  Tiago Luchini
+#+EMAIL:   info@tiagoluchini.eu
+#+OPTIONS: toc:t
+
+Hodur is a descriptive domain modeling approach and related collection
+of libraries for Clojure.
+
+By using Hodur you can define your domain model as data, parse and
+validate it, and then either consume your model via an API making your
+apps respond to the defined model or use one of the many plugins to
+help you achieve mechanical, repetitive results faster and in a purely
+functional manner.
+
+* Motivation
+
+  For a deeper insight into the motivations behind Hodur, check the
+  [[https://github.com/luchiniatwork/hodur-engine/blob/master/docs/MOTIVATION.org][motivation doc]].
+
+* Getting Started
+
+  Hodur has a highly modular architecture. [[https://github.com/luchiniatwork/hodur-engine][Hodur Engine]] is always
+  required as it provides the meta-database functions and APIs
+  consumed by plugins.
+
+  Therefore, refer the [[https://github.com/luchiniatwork/hodur-engine#getting-started][Hodur Engine's Getting Started]] first and then
+  return here for Lacinia-specific setup.
+
+  After having set up ~hodur-engine~ as described above, we are also
+  nede to add ~hodur-lacinia-schema~, a plugin that creates Lacinia
+  Schemas out of your model to the ~deps.edn~ file:
+
+#+BEGIN_SRC clojure
+  {:deps {:hodur/engine         {:mvn/version "0.1.0"}
+          :hodur/lacinia-schema {:mvn/version "0.1.0"}}}
+#+END_SRC
+
+  You should ~require~ it any way you see fit:
+
+#+BEGIN_SRC clojure
+  (require '[hodur-lacinia-schema.core :as hodur-lacinia])
+#+END_SRC
+
+  Let's expand our ~Person~ model from the original getting started by
+  "tagging" the ~Person~ entity for Lacinia. You can read more about
+  the concept of tagging for plugins in the sessions below but, in
+  short, this is the way we, model designers, use to specify which
+  entities we want to be exposed to which plugins.
+
+#+BEGIN_SRC clojure
+  (def meta-db (hodur/init-schema
+                '[^{:lacinia/tag-recursive true}
+                  Person
+                  [^String first-name
+                   ^String last-name]]))
+#+END_SRC
+
+  The ~hodur-lacinia-schema~ plugin exposes a function called ~schema~
+  that generates your model as a Lacinia schema payload:
+
+#+BEGIN_SRC clojure
+  (def lacinia-schema (hodur-lacinia/schema meta-db))
+#+END_SRC
+
+  When you inspect ~datomic-schema~, this is what you have:
+
+#+BEGIN_SRC clojure
+  {:objects
+   {:Person
+    {:fields
+     {:firstName {:type (non-null String)},
+      :lastName {:type (non-null String)}}}}}
+#+END_SRC
+
+  Assuming Lacinia's ~com.walmartlabs.lacinia.schema~ is bound to
+  ~schema~, you can initialize your instance by compiling the schema like this:
+
+#+BEGIN_SRC clojure
+  (def compiled-schema (-> lacinia-schema
+                           schema/compile))
+#+END_SRC
+
+  Most certainly you will have some resolvers defined in your schema
+  (say ~:person-query/resolver~ that you want to bind to function
+  ~person-query-resolver~). In this case, attach the resolvers using
+  Lacinia's ~com.walmartlabs.lacinia.util/attach-resolvers~ function
+  (shownin this next example as bound to ~util/attach-resolvers~:
+
+#+BEGIN_SRC clojure
+  (def compiled-schema (-> lacinia-schema
+                           (util/attach-resolvers
+                            {:person-query/resolver person-query-resolver})
+                           schema/compile))
+#+END_SRC
+
+* Model Definition
+
+  All Hodur plugins follow the [[https://github.com/luchiniatwork/hodur-engine#model-definition][Model Definition]] as described on Hodur
+  [[https://github.com/luchiniatwork/hodur-engine#model-definition][Engine's documentation]].
+
+* Query, Mutation, and Subscription Roots
+
+  GraphQL is not a pure graph interface in the sense of enabling
+  consumers to start traversing from any node. Instead, it has the
+  concept of "roots" where queries, mutations, or subscriptions can
+  start.
+
+  To define a query root, use the marker ~:lacinia/query~. In the
+  example below we are defining an entity named ~QueryRoot~ marked as
+  Lacinia's query root. It has a single field ~game-by-id~ that
+  returns a ~BoardGame~.
+
+#+BEGIN_SRC clojure
+  [^{:lacinia/tag-recursive true
+     :lacinia/query true}
+   QueryRoot
+   [^BoardGame game-by-id [^{:type ID
+                             :optional true} id]]]
+#+END_SRC
+
+  The same principle applies to mutations and subsciptions. A root
+  entity must be defined for each and marked with ~:lacinia/mutation~
+  and ~:lacinia/subscription~ respectively.
+
+* Resolvers
+
+  In order to provide functionality to your GraphQL interface you will
+  need to create resolvers and attach them to your graph tree. Lacinia
+  will take care of building the call stack and stiching up the
+  response.
+
+  A resolver is defined by using the marker ~:lacinia/resolve~ that
+  can be used in any field. This marker takes a key that will later be
+  used by ~com.walmartlabs.lacinia.util/attach-resolvers~ to map to
+  real functions. The following example shows how to mark the
+  ~game-by-id~ field to the resolver ~:query/game-by-id~:
+
+#+BEGIN_SRC clojure
+  [^:lacinia/query
+   QueryRoot
+   [^{:type BoardGame
+      :lacinia/resolve :query/game-by-id}
+    game-by-id [^{:type ID
+                  :optional true} id]]]
+#+END_SRC
+
+* Interfaces, Unions, and Enums
+
+  GraphQL supports interfaces, unions and enums. Simply marking your
+  entities accordingly is enough to signal to Hodur Lacinia Schema
+  that you want to use them.
+
+  Refer to [[https://github.com/luchiniatwork/hodur-engine#model-definition][Hodur Engine's Model Definition documentation]] for more
+  details.
+
+* Input Objects
+
+  GraphQL requires that objects that are sent as parameters to
+  mutations be defined as separate entities.
+
+  In the Hodur Lacinia schema this can be drastically simplified by
+  using the marker ~:lacinia/input~ on the entity you want to use as
+  an input object as shown below:
+
+#+BEGIN_SRC clojure
+  [^{:lacinia/tag-recursive true
+     :lacinia/input true}
+   Employee
+   [^{:type String} name
+    ^{:type Float}  salary]]
+#+END_SRC
+
+* Optional and Default Params
+
+
+  By default, Hodur assumes that all parameters are mandatory. In
+  order to make them optional, they need to be marked with
+  ~:optional~. A common pattern is to make a parameter optional while
+  also assigning a default value to it with ~:default~:
+
+#+BEGIN_SRC clojure
+  [QueryRoot
+   [employees-by-location [^{:type String
+                             :optional true
+                             :default "HQ"} location]]]
+#+END_SRC
+
+* Bugs
+
+  If you find a bug, submit a [[https://github.com/luchiniatwork/hodur-lacinia-schema/issues][GitHub issue]].
+
+* Help!
+
+  This project is looking for team members who can help this project
+  succeed! If you are interested in becoming a team member please open
+  an issue.
+
+* License
+
+  Copyright © 2018 Tiago Luchini
+
+  Distributed under the MIT License (see [[./LICENSE][LICENSE]]).
