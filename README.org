@@ -27,7 +27,7 @@ functional manner.
   return here for Lacinia-specific setup.
 
   After having set up ~hodur-engine~ as described above, we are also
-  nede to add ~hodur-lacinia-schema~, a plugin that creates Lacinia
+  need to add ~hodur-lacinia-schema~, a plugin that creates Lacinia
   Schemas out of your model to the ~deps.edn~ file:
 
 #+BEGIN_SRC clojure
@@ -84,7 +84,7 @@ functional manner.
   (say ~:person-query/resolver~ that you want to bind to function
   ~person-query-resolver~). In this case, attach the resolvers using
   Lacinia's ~com.walmartlabs.lacinia.util/attach-resolvers~ function
-  (shownin this next example as bound to ~util/attach-resolvers~:
+  (shown in this next example as bound to ~util/attach-resolvers~:
 
 #+BEGIN_SRC clojure
   (def compiled-schema (-> lacinia-schema
@@ -118,7 +118,7 @@ functional manner.
                              :optional true} id]]]
 #+END_SRC
 
-  The same principle applies to mutations and subsciptions. A root
+  The same principle applies to mutations and subscriptions. A root
   entity must be defined for each and marked with ~:lacinia/mutation~
   and ~:lacinia/subscription~ respectively.
 
@@ -126,7 +126,7 @@ functional manner.
 
   In order to provide functionality to your GraphQL interface you will
   need to create resolvers and attach them to your graph tree. Lacinia
-  will take care of building the call stack and stiching up the
+  will take care of building the call stack and stitching up the
   response.
 
   A resolver is defined by using the marker ~:lacinia/resolve~ that
@@ -144,11 +144,11 @@ functional manner.
                   :optional true} id]]]
 #+END_SRC
 
-  Subscriptions use stremer functions instead of resolvers. Lacinia
+  Subscriptions use streamer functions instead of resolvers. Lacinia
   invokes a streamer function once, to initialize the subscription
   stream. The streamer is provided with a source stream callback
   function; as new values are available they are passed to this
-  callback. Typically, the streamer will create a thread, core.async
+  callback. Typically, the streamer will create a thread, ~core.async~
   process, or other long-lived construct to feed values to the source
   stream.
 
