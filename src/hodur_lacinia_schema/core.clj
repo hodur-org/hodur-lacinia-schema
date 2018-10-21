@@ -97,12 +97,19 @@
             (conj c (parse-union-field field)))
           [] fields))
 
+(defn ^:private parse-implement-types
+  [types]
+  (->> types
+       (map #(->PascalCaseKeyword (:type/name %)))
+       vec))
+
 (defn ^:prvate parse-type
-  [{:keys [field/_parent type/doc type/deprecation]}]
+  [{:keys [field/_parent type/doc type/deprecation type/implements]}]
   (cond-> {}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
-    _parent     (assoc :fields (->> _parent (sort-by :field/name) parse-fields))))
+    _parent     (assoc :fields (->> _parent (sort-by :field/name) parse-fields))
+    implements  (assoc :implements (->> implements (sort-by :type/name) parse-implement-types))))
 
 (defn ^:prvate parse-enum
   [{:keys [field/_parent type/doc type/deprecation]}]
