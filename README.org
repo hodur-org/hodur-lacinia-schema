@@ -122,7 +122,7 @@ functional manner.
   entity must be defined for each and marked with ~:lacinia/mutation~
   and ~:lacinia/subscription~ respectively.
 
-* Resolvers
+* Resolvers and Streamers
 
   In order to provide functionality to your GraphQL interface you will
   need to create resolvers and attach them to your graph tree. Lacinia
@@ -142,6 +142,24 @@ functional manner.
       :lacinia/resolve :query/game-by-id}
     game-by-id [^{:type ID
                   :optional true} id]]]
+#+END_SRC
+
+  Subscriptions use stremer functions instead of resolvers. Lacinia
+  invokes a streamer function once, to initialize the subscription
+  stream. The streamer is provided with a source stream callback
+  function; as new values are available they are passed to this
+  callback. Typically, the streamer will create a thread, core.async
+  process, or other long-lived construct to feed values to the source
+  stream.
+
+  Streamers are defined by using the marker ~:lacinia/stream~:
+
+#+BEGIN_SRC clojure
+  [^:lacinia/subscription
+   SubscriptionRoot
+   [^{:type Person
+      :lacinia/stream :person/stream}
+    listen-to-person [^ID id]]]
 #+END_SRC
 
 * Interfaces, Unions, and Enums
