@@ -3,6 +3,8 @@
 #+EMAIL:   info@tiagoluchini.eu
 #+OPTIONS: toc:t
 
+[[https://circleci.com/gh/luchiniatwork/hodur-lacinia-schema.svg?style=shield&circle-token=86a1a26155a45d7ec4aba873e975b15ce37d1f5a]]
+
 Hodur is a descriptive domain modeling approach and related collection
 of libraries for Clojure.
 
