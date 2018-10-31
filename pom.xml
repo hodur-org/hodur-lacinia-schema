@@ -22,6 +22,11 @@
       <artifactId>camel-snake-kebab</artifactId>
       <version>0.4.0</version>
     </dependency>
+    <dependency>
+      <groupId>datascript</groupId>
+      <artifactId>datascript</artifactId>
+      <version>0.16.7</version>
+    </dependency>
   </dependencies>
 
   <packaging>clojure</packaging>
