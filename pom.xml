@@ -4,7 +4,7 @@
   <groupId>hodur</groupId>
   <artifactId>lacinia-schema</artifactId>
   <version>0.1.0</version>
-  <name>engine</name>
+  <name>lacinia-schema</name>
 
   <dependencies>
     <dependency>
@@ -32,9 +32,9 @@
   <packaging>clojure</packaging>
 
   <scm>
-    <connection>scm:git:git@github.com:luchiniatwork/hodur-lacina-schema.git</connection>
-    <developerConnection>scm:git:git@github.com:luchiniatwork/hodur-lacina-schema.git</developerConnection>
-    <url>https://github.com/luchiniatwork/hodur-lacina-schema</url>
+    <connection>scm:git:git@github.com:luchiniatwork/hodur-lacinia-schema.git</connection>
+    <developerConnection>scm:git:git@github.com:luchiniatwork/hodur-lacinia-schema.git</developerConnection>
+    <url>https://github.com/luchiniatwork/hodur-lacinia-schema</url>
   </scm>
 
   <distributionManagement>
