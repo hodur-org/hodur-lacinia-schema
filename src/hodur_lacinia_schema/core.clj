@@ -21,8 +21,7 @@
     (->PascalCaseKeyword name)
     (get primitive-type-map name)))
 
-(defn ^:private get-field-type
-  [{:keys [field/optional field/type field/cardinality]}]
+(defn ^:private get-full-type [type optional cardinality]
   (let [inner-type (if optional
                      (get-type-reference type)
                      (list 'non-null (get-type-reference type)))]
@@ -34,11 +33,13 @@
         (list 'list inner-type))
       inner-type)))
 
+(defn ^:private get-field-type
+  [{:keys [field/optional field/type field/cardinality]}]
+  (get-full-type type optional cardinality))
+
 (defn ^:private get-param-type
-  [{:keys [param/optional param/type]}]
-  (if optional
-    (get-type-reference type)
-    (list 'non-null (get-type-reference type))))
+  [{:keys [param/optional param/type param/cardinality]}]
+  (get-full-type type optional cardinality))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
