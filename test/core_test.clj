@@ -107,7 +107,12 @@
                              QueryRoot
                              [^{:type Person
                                 :lacinia/resolve :query/person-by-id}
-                              person-by-id [^ID id]]])]
+                              person-by-id [^ID id]
+                              ^{:type Person
+                                :cardinality [0 n]
+                                :lacinia/resolve :query/people-by-ids}
+                              people-by-ids [^{:type ID
+                                               :cardinality [0 n]} ids]]])]
     (is (= '{:objects
              {:Person
               {:fields
@@ -118,7 +123,11 @@
              {:personById
               {:type (non-null :Person)
                :resolve :query/person-by-id
-               :args {:id {:type (non-null ID)}}}}}
+               :args {:id {:type (non-null ID)}}}
+              :peopleByIds
+              {:type (list (non-null :Person))
+               :resolve :query/people-by-ids
+               :args {:ids {:type (list (non-null ID))}}}}}
            s))))
 
 ;; Tests:
