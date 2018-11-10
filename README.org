@@ -40,7 +40,7 @@ functional manner.
 
 #+BEGIN_SRC clojure
   {:deps {hodur/engine         {:mvn/version "0.1.2"}
-          hodur/lacinia-schema {:mvn/version "0.1.0"}}}
+          hodur/lacinia-schema {:mvn/version "0.1.1"}}}
 #+END_SRC
 
   You should ~require~ it any way you see fit:

@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>hodur</groupId>
   <artifactId>lacinia-schema</artifactId>
-  <version>0.1.0</version>
+  <version>0.1.1</version>
   <name>lacinia-schema</name>
 
   <dependencies>
@@ -15,7 +15,7 @@
     <dependency>
       <groupId>hodur</groupId>
       <artifactId>engine</artifactId>
-      <version>0.1.0</version>
+      <version>0.1.2</version>
     </dependency>
     <dependency>
       <groupId>camel-snake-kebab</groupId>
