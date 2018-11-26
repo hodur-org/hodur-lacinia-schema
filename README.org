@@ -20,6 +20,12 @@ apps respond to the defined model or use one of the many plugins to
 help you achieve mechanical, repetitive results faster and in a purely
 functional manner.
 
+#+BEGIN_QUOTE
+This Hodur plugin provides the ability to generate [[https://github.com/walmartlabs/lacinia][Lacinia]] schemas out
+of your Hodur model. Lacinia will let you spin off a [[https://graphql.org/][GraphQL server]] in
+minutes.
+#+END_QUOTE
+
 * Motivation
 
   For a deeper insight into the motivations behind Hodur, check the
@@ -39,13 +45,14 @@ functional manner.
   out of your model to the ~deps.edn~ file:
 
 #+BEGIN_SRC clojure
-  {:deps {hodur/engine         {:mvn/version "0.1.2"}
+  {:deps {hodur/engine         {:mvn/version "0.1.5"}
           hodur/lacinia-schema {:mvn/version "0.1.1"}}}
 #+END_SRC
 
   You should ~require~ it any way you see fit:
 
 #+BEGIN_SRC clojure
+  (require '[hodur-engine.core :as hodur])
   (require '[hodur-lacinia-schema.core :as hodur-lacinia])
 #+END_SRC
 
@@ -70,7 +77,7 @@ functional manner.
   (def lacinia-schema (hodur-lacinia/schema meta-db))
 #+END_SRC
 
-  When you inspect ~datomic-schema~, this is what you have:
+  When you inspect ~lacinia-schema~, this is what you have:
 
 #+BEGIN_SRC clojure
   {:objects
