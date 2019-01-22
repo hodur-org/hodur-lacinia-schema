@@ -21,16 +21,22 @@
     (->PascalCaseKeyword name)
     (get primitive-type-map name)))
 
+(defn ^:private cardinality-one-to-one? [cardinality]
+  (and (= (first cardinality) 1)
+       (or (nil? (second cardinality))
+           (= (second cardinality) 1))))
+
 (defn ^:private get-full-type [type optional cardinality]
-  (let [inner-type (if optional
+  (let [non-null-inner-type (list 'non-null (get-type-reference type))
+        list-type (list 'list non-null-inner-type)
+        inner-type (if optional
                      (get-type-reference type)
-                     (list 'non-null (get-type-reference type)))]
-    (if cardinality
-      (if (and (= (first cardinality) 1)
-               (or (nil? (second cardinality))
-                   (= (second cardinality) 1)))
-        inner-type
-        (list 'list inner-type))
+                     non-null-inner-type)]
+    (if (and (some? cardinality)
+             (not (cardinality-one-to-one? cardinality)))
+      (if optional
+        list-type
+        (list 'non-null list-type))
       inner-type)))
 
 (defn ^:private get-field-type
@@ -318,5 +324,5 @@
 
     (def s (schema conn))
 
-    s
-    ))
+    s))
+
