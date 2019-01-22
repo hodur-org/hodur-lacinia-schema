@@ -38,7 +38,7 @@
               {:fields
                {:id {:type (non-null ID)}
                 :name {:type (non-null String)}
-                :relations {:type (list :Relation)}}}
+                :relations {:type (list (non-null :Relation))}}}
               :Relation
               {:fields
                {:type {:type (non-null :RelationType)}
@@ -85,7 +85,7 @@
               {:type (non-null :Person)
                :args {:id {:type (non-null ID)}}}
               :searchPersons
-              {:type (list (non-null :Person))
+              {:type (non-null (list (non-null :Person)))
                :args {:term {:type String
                              :default-value ""}}}}}
            s))))
@@ -125,9 +125,9 @@
                :resolve :query/person-by-id
                :args {:id {:type (non-null ID)}}}
               :peopleByIds
-              {:type (list (non-null :Person))
+              {:type (non-null (list (non-null :Person)))
                :resolve :query/people-by-ids
-               :args {:ids {:type (list (non-null ID))}}}}}
+               :args {:ids {:type (non-null (list (non-null ID)))}}}}}
            s))))
 
 ;; Tests:
