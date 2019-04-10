@@ -3,10 +3,14 @@
             [hodur-engine.core :as engine]
             [hodur-lacinia-schema.core :as lacinia]))
 
-(defn ^:private schema->lacinia [s]
-  (-> s
+(defn ^:private schema->lacinia 
+  ([s](schema->lacinia s {}))
+  ([s opts] 
+    (-> s
       engine/init-schema
-      lacinia/schema))
+      (lacinia/schema opts))))
+
+  
 
 ;; Tests:
 ;; * two basic objects
@@ -265,4 +269,24 @@
               {:type (non-null :Person)
                :stream :person/stream
                :args {:id {:type (non-null ID)}}}}}
+           s))))
+
+(deftest test-custom-scalars
+  (let [s (schema->lacinia '[^{:lacinia/tag true}
+                             default
+
+                             Person
+                             [^ID id
+                              ^DateTime dob
+                              ^String name]] 
+                           {:custom-type-map {"DateTime" 'DateTime}})]
+
+    (is (= '{:objects
+             {:Person
+              {:fields
+               {:id {:type (non-null ID)}
+                :name {:type (non-null String)}
+                :dob {:type (non-null DateTime)}}}
+               }
+             }
            s))))
