@@ -16,21 +16,23 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn ^:private get-type-reference
-  [{:keys [type/name type/nature]}]
+  [opts {:keys [type/name type/nature]}]
   (if (= :user nature)
     (->PascalCaseKeyword name)
-    (get primitive-type-map name)))
+    (if-let [custom (get-in opts [:custom-type-map name])]
+      custom
+      (get primitive-type-map name))))
 
 (defn ^:private cardinality-one-to-one? [cardinality]
   (and (= (first cardinality) 1)
        (or (nil? (second cardinality))
            (= (second cardinality) 1))))
 
-(defn ^:private get-full-type [type optional cardinality]
-  (let [non-null-inner-type (list 'non-null (get-type-reference type))
+(defn ^:private get-full-type [opts type optional cardinality]
+  (let [non-null-inner-type (list 'non-null (get-type-reference opts type))
         list-type (list 'list non-null-inner-type)
         inner-type (if optional
-                     (get-type-reference type)
+                     (get-type-reference opts type)
                      non-null-inner-type)]
     (if (and (some? cardinality)
              (not (cardinality-one-to-one? cardinality)))
@@ -40,68 +42,68 @@
       inner-type)))
 
 (defn ^:private get-field-type
-  [{:keys [field/optional field/type field/cardinality]}]
-  (get-full-type type optional cardinality))
+  [opts {:keys [field/optional field/type field/cardinality]}]
+  (get-full-type opts type optional cardinality))
 
 (defn ^:private get-param-type
-  [{:keys [param/optional param/type param/cardinality]}]
-  (get-full-type type optional cardinality))
+  [opts {:keys [param/optional param/type param/cardinality]}]
+  (get-full-type opts type optional cardinality))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn ^:private parse-param
-  [{:keys [param/doc param/deprecation param/default] :as param}]
-  (cond-> {:type (get-param-type param)}
+  [opts {:keys [param/doc param/deprecation param/default] :as param}]
+  (cond-> {:type (get-param-type opts param)}
     default     (assoc :default-value default)
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)))
 
 (defn ^:private parse-params
-  [params]
+  [opts params]
   (reduce (fn [m {:keys [param/name lacinia/tag] :as param}]
             (if tag
-              (assoc m (->camelCaseKeyword name) (parse-param param))
+              (assoc m (->camelCaseKeyword name) (parse-param opts param))
               m))
           {} params))
 
 (defn ^:private parse-field
-  [{:keys [field/doc field/deprecation param/_parent
+  [opts {:keys [field/doc field/deprecation param/_parent
            lacinia/resolve lacinia/stream] :as field}]
-  (cond-> {:type (get-field-type field)}
+  (cond-> {:type (get-field-type opts field)}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
     resolve     (assoc :resolve resolve)
     stream      (assoc :stream stream)
-    _parent     (assoc :args (->> _parent (sort-by :param/name) parse-params))))
+    _parent     (assoc :args (->> _parent (sort-by :param/name) (parse-params opts)))))
 
 (defn ^:private parse-fields
-  [fields]
+  [opts fields]
   (reduce (fn [m {:keys [field/name lacinia/tag] :as field}]
             (if tag
-              (assoc m (->camelCaseKeyword name) (parse-field field))
+              (assoc m (->camelCaseKeyword name) (parse-field opts field))
               m))
           {} fields))
 
 (defn ^:private parse-enum-field
-  [{:keys [field/name field/doc field/deprecation] :as field}]
+  [opts {:keys [field/name field/doc field/deprecation] :as field}]
   (cond-> {:enum-value (->SCREAMING_SNAKE_CASE_KEYWORD name)}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)))
 
 (defn ^:private parse-enum-fields
-  [fields]
+  [opts fields]
   (reduce (fn [c field]
-            (conj c (parse-enum-field field)))
+            (conj c (parse-enum-field opts field)))
           [] fields))
 
 (defn ^:private parse-union-field
-  [{:keys [field/name] :as field}]
+  [opts {:keys [field/name] :as field}]
   (->PascalCaseKeyword name))
 
 (defn ^:private parse-union-fields
-  [fields]
+  [opts fields]
   (reduce (fn [c field]
-            (conj c (parse-union-field field)))
+            (conj c (parse-union-field opts field)))
           [] fields))
 
 (defn ^:private parse-implement-types
@@ -111,56 +113,56 @@
        vec))
 
 (defn ^:prvate parse-type
-  [{:keys [field/_parent type/doc type/deprecation type/implements]}]
+  [opts {:keys [field/_parent type/doc type/deprecation type/implements]}]
   (cond-> {}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
-    _parent     (assoc :fields (->> _parent (sort-by :field/name) parse-fields))
+    _parent     (assoc :fields (->> _parent (sort-by :field/name) (parse-fields opts)))
     implements  (assoc :implements (->> implements (sort-by :type/name) parse-implement-types))))
 
 (defn ^:prvate parse-enum
-  [{:keys [field/_parent type/doc type/deprecation]}]
+  [opts {:keys [field/_parent type/doc type/deprecation]}]
   (cond-> {}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
-    _parent     (assoc :values (->> _parent (sort-by :field/name) parse-enum-fields))))
+    _parent     (assoc :values (->> _parent (sort-by :field/name) (parse-enum-fields opts)))))
 
 (defn ^:prvate parse-union
-  [{:keys [field/_parent type/doc type/deprecation]}]
+  [opts {:keys [field/_parent type/doc type/deprecation]}]
   (cond-> {}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
-    _parent     (assoc :members (->> _parent (sort-by :field/name) parse-union-fields))))
+    _parent     (assoc :members (->> _parent (sort-by :field/name) (parse-union-fields opts)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn ^:private reduce-type-fields
-  [m {:keys [field/_parent] :as t}]
+  [m {:keys [field/_parent] :as t} opts]
   (->> _parent
        (sort-by :field/name)
        (reduce (fn [f-m {:keys [lacinia/tag] :as field}]
                  (if tag
-                   (assoc f-m (-> field :field/name ->camelCaseKeyword) (parse-field field))
+                   (assoc f-m (-> field :field/name ->camelCaseKeyword) (parse-field opts field))
                    f-m))
                m)))
 
 (defn ^:private reduce-type
-  [m {:keys [type/name] :as t}]
+  [m {:keys [type/name] :as t} opts]
   (assoc m
          (->PascalCaseKeyword name)
-         (parse-type t)))
+         (parse-type opts t)))
 
 (defn ^:private reduce-enum
-  [m {:keys [type/name] :as t}]
+  [m {:keys [type/name] :as t} opts]
   (assoc m
          (->PascalCaseKeyword name)
-         (parse-enum t)))
+         (parse-enum opts t)))
 
 (defn ^:private reduce-union
-  [m {:keys [type/name] :as t}]
+  [m {:keys [type/name] :as t} opts]
   (assoc m
          (->PascalCaseKeyword name)
-         (parse-union t)))
+         (parse-union opts t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -243,15 +245,15 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn schema
-  [conn]
-  (reduce-kv (fn [m k {:keys [where reducer]}]
+  ([conn] (schema conn {}))
+  ([conn opts] (reduce-kv (fn [m k {:keys [where reducer]}]
                (let [types (find-and-pull selector where conn)]
                  (if (empty? types)
                    m
                    (assoc m k (reduce (fn [m t]
-                                        (reducer m t))
+                                        (reducer m t opts))
                                       {} types)))))
-             {} section-map))
+             {} section-map)))
 
 (comment
   (do
