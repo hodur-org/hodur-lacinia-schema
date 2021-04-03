@@ -49,12 +49,22 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn ^:private parse-directives
+  [directives]
+  (->> directives
+       (mapv (fn [directive]
+               (if (map? directive)
+                 {:directive-type (key (first directive))
+                  :directive-args (val (first directive))}
+                 {:directive-type directive})))))
+
 (defn ^:private parse-param
-  [{:keys [param/doc param/deprecation param/default] :as param}]
+  [{:keys [param/doc param/deprecation param/default lacinia/directives] :as param}]
   (cond-> {:type (get-param-type param)}
     default     (assoc :default-value default)
     doc         (assoc :description doc)
-    deprecation (assoc :deprecated deprecation)))
+    deprecation (assoc :deprecated deprecation)
+    directives  (assoc :directives (->> directives parse-directives))))
 
 (defn ^:private parse-params
   [params]
@@ -66,13 +76,14 @@
 
 (defn ^:private parse-field
   [{:keys [field/doc field/deprecation param/_parent
-           lacinia/resolve lacinia/stream] :as field}]
+           lacinia/resolve lacinia/stream lacinia/directives] :as field}]
   (cond-> {:type (get-field-type field)}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
     resolve     (assoc :resolve resolve)
     stream      (assoc :stream stream)
-    _parent     (assoc :args (->> _parent (sort-by :param/name) parse-params))))
+    _parent     (assoc :args (->> _parent (sort-by :param/name) parse-params))
+    directives  (assoc :directives (->> directives parse-directives))))
 
 (defn ^:private parse-fields
   [fields]
@@ -83,10 +94,11 @@
           {} fields))
 
 (defn ^:private parse-enum-field
-  [{:keys [field/name field/doc field/deprecation] :as field}]
+  [{:keys [field/name field/doc field/deprecation lacinia/directives] :as field}]
   (cond-> {:enum-value (->SCREAMING_SNAKE_CASE_KEYWORD name)}
     doc         (assoc :description doc)
-    deprecation (assoc :deprecated deprecation)))
+    deprecation (assoc :deprecated deprecation)
+    directives  (assoc :directives (->> directives parse-directives))))
 
 (defn ^:private parse-enum-fields
   [fields]
@@ -111,19 +123,21 @@
        vec))
 
 (defn ^:prvate parse-type
-  [{:keys [field/_parent type/doc type/deprecation type/implements]}]
+  [{:keys [field/_parent type/doc type/deprecation type/implements lacinia/directives]}]
   (cond-> {}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
     _parent     (assoc :fields (->> _parent (sort-by :field/name) parse-fields))
-    implements  (assoc :implements (->> implements (sort-by :type/name) parse-implement-types))))
+    implements  (assoc :implements (->> implements (sort-by :type/name) parse-implement-types))
+    directives  (assoc :directives (->> directives parse-directives))))
 
 (defn ^:prvate parse-enum
-  [{:keys [field/_parent type/doc type/deprecation]}]
+  [{:keys [field/_parent type/doc type/deprecation lacinia/directives]}]
   (cond-> {}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
-    _parent     (assoc :values (->> _parent (sort-by :field/name) parse-enum-fields))))
+    _parent     (assoc :values (->> _parent (sort-by :field/name) parse-enum-fields))
+    directives  (assoc :directives (->> directives parse-directives))))
 
 (defn ^:prvate parse-union
   [{:keys [field/_parent type/doc type/deprecation]}]
@@ -325,4 +339,3 @@
     (def s (schema conn))
 
     s))
-

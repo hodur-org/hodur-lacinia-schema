@@ -1,17 +1,17 @@
 {:paths ["src"]
 
  :deps
- {org.clojure/clojure {:mvn/version "1.10.1"}
-  hodur/engine        {:mvn/version "0.1.6"}
-  camel-snake-kebab   {:mvn/version "0.4.0"}
+ {org.clojure/clojure {:mvn/version "1.10.3"}
+  hodur/engine        {:mvn/version "0.1.7"}
+  camel-snake-kebab   {:mvn/version "0.4.1"}
   datascript          {:mvn/version "0.18.4"}}
 
  :aliases
  {:dev
   {:extra-deps
-   {com.walmartlabs/lacinia {:mvn/version "0.28.0"}}}
+   {com.walmartlabs/lacinia {:mvn/version "0.38.0"}}}
 
   :test
   {:extra-paths ["test"]
-   :extra-deps {lambdaisland/kaocha {:mvn/version "0.0-529"}}
+   :extra-deps {lambdaisland/kaocha {:mvn/version "1.0.829"}}
    :main-opts ["-m" "kaocha.runner"]}}}

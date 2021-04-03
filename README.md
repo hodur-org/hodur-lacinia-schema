@@ -60,8 +60,8 @@ add `hodur/lacinia-schema`, a plugin that creates Lacinia Schemas out
 of your model to the `deps.edn` file:
 
 ``` clojure
-  {:deps {hodur/engine         {:mvn/version "0.1.6"}
-          hodur/lacinia-schema {:mvn/version "0.1.2"}}}
+  {:deps {hodur/engine         {:mvn/version "0.1.7"}
+          hodur/lacinia-schema {:mvn/version "0.1.3"}}}
 ```
 
 You should `require` it any way you see fit:
@@ -232,6 +232,41 @@ default value to it with `:default`:
                              :optional true
                              :default "HQ"} location]]]
 ```
+
+## GraphQL Directives
+
+Hodur supports marking types, fields, enums, enum values, and params
+with GraphQL directives through the use of the tag
+`:lacinia/directives`.
+
+A common usage is when using GraphQL federation where an internal
+entity needs to have a `@key` tag with a `fields` argument that
+indicates the key of this entity:
+
+``` clojure
+[^{:lacinia/tag-recursive true
+   :lacinia/directives [{:key {:fields "id"}}]}
+ Employee
+ [^{:type ID} id
+  ^{:type String} name
+  ^{:type Float}  salary]]
+```
+
+Hodur supports either a map with a single entry where the key of the
+entry is the name of the directive and its value is a map of directive
+arguments (as shown above) or a simple keyword for a directive without
+arguments. I.e. consider marking the `id` field with hypothetical
+`important` and `external` directives:
+
+``` clojure
+[^{:lacinia/tag-recursive true}
+ Employee
+ [^{:type ID
+    :lacinia/directives [:important :external]} id
+  ^{:type String} name
+  ^{:type Float}  salary]]
+```
+
 
 ## Bugs
 

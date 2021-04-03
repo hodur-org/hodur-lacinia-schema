@@ -266,3 +266,58 @@
                :stream :person/stream
                :args {:id {:type (non-null ID)}}}}}
            s))))
+
+
+(deftest test-directives
+  (let [s (schema->lacinia '[^{:lacinia/tag true}
+                             default
+
+                             ^{:lacinia/directives [{:key {:fields "id"}}
+                                                    :simple-directive
+                                                    :second-directive]}
+                             Person
+                             [^{:type ID
+                                :lacinia/directives [:external]} id
+                              ^String name
+                              ^Integer height [^{:type String
+                                                 :lacinia/directives [{:imagine
+                                                                       {:value1 "dragons"
+                                                                        :value2 "really?"}}]}
+                                               unit]]
+
+                             ^{:enum true
+                               :lacinia/directives [:foo]}
+                             Gender
+                             [MALE
+                              FEMALE
+                              ^{:lacinia/directives [:foo :bar :foobar]}
+                              NA]])]
+    (is (= '{:objects
+             {:Person
+              {:fields
+               {:id {:type (non-null ID)
+                     :directives [{:directive-type :external}]}
+                :name {:type (non-null String)}
+                :height {:args {:unit {:type (non-null String)
+                                       :directives
+                                       [{:directive-type :imagine
+                                         :directive-args {:value1 "dragons"
+                                                          :value2 "really?"}}]}}
+                         :type (non-null Int)}}
+               :directives
+               [{:directive-type :key
+                 :directive-args {:fields "id"}}
+                {:directive-type :simple-directive}
+                {:directive-type :second-directive}]}}
+             :enums
+             {:Gender
+              {:values [{:enum-value :FEMALE}
+                        {:enum-value :MALE}
+                        {:enum-value :NA
+                         :directives
+                         [{:directive-type :foo}
+                          {:directive-type :bar}
+                          {:directive-type :foobar}]}]
+               :directives
+               [{:directive-type :foo}]}}}
+           s))))
