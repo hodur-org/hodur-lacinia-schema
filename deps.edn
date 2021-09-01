@@ -1,10 +1,10 @@
 {:paths ["src"]
 
  :deps
- {org.clojure/clojure {:mvn/version "1.10.3"}
-  hodur/engine        {:mvn/version "0.1.7"}
-  camel-snake-kebab   {:mvn/version "0.4.1"}
-  datascript          {:mvn/version "0.18.4"}}
+ {org.clojure/clojure                   {:mvn/version "1.10.3"}
+  hodur/engine                          {:mvn/version "0.1.7"}
+  camel-snake-kebab/camel-snake-kebab   {:mvn/version "0.4.1"}
+  datascript/datascript                 {:mvn/version "0.18.4"}}
 
  :aliases
  {:dev
