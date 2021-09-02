@@ -1,7 +1,11 @@
 (ns hodur-lacinia-schema.core
   (:require [camel-snake-kebab.core :refer [->camelCaseKeyword
                                             ->PascalCaseKeyword
-                                            ->SCREAMING_SNAKE_CASE_KEYWORD]]
+                                            ->SCREAMING_SNAKE_CASE_KEYWORD
+                                            ->camelCaseString
+                                            ->PascalCaseString
+                                            ->SCREAMING_SNAKE_CASE_STRING]]
+            [clojure.string :as s]
             [datascript.core :as d]
             [datascript.query-v3 :as q]))
 
@@ -122,7 +126,7 @@
        (map #(->PascalCaseKeyword (:type/name %)))
        vec))
 
-(defn ^:prvate parse-type
+(defn ^:private parse-type
   [{:keys [field/_parent type/doc type/deprecation type/implements lacinia/directives]}]
   (cond-> {}
     doc         (assoc :description doc)
@@ -131,7 +135,28 @@
     implements  (assoc :implements (->> implements (sort-by :type/name) parse-implement-types))
     directives  (assoc :directives (->> directives parse-directives))))
 
-(defn ^:prvate parse-enum
+(defn ^:private type-sdl-ref [t]
+  (let [t' (if (seq? t) t [t])]
+    (loop [a "" i (first t') n (next t')]
+      (let [[a' n'] (cond
+                      (= 'list i)
+                      [(str a "[" (type-sdl-ref (first n)) "]") (next n)]
+
+                      (= 'non-null i)
+                      [(str a (type-sdl-ref (first n)) "!") (next n)]
+
+                      :else
+                      [(str a (->PascalCaseString i)) n])]
+        (if n'
+          (recur a' (first n') (next n'))
+          a')))))
+
+(defn ^:private parse-type-sdl [t]
+  (s/join "\n" (map (fn [[n {:keys [type]}]]
+                      (str "  " (->camelCaseString n) ": " (type-sdl-ref type)))
+                    (:fields (parse-type t)))))
+
+(defn ^:private parse-enum
   [{:keys [field/_parent type/doc type/deprecation lacinia/directives]}]
   (cond-> {}
     doc         (assoc :description doc)
@@ -139,12 +164,22 @@
     _parent     (assoc :values (->> _parent (sort-by :field/name) parse-enum-fields))
     directives  (assoc :directives (->> directives parse-directives))))
 
-(defn ^:prvate parse-union
+(defn ^:private parse-enum-sdl [t]
+  (s/join "\n" (map (fn [{:keys [enum-value]}]
+                      (str "  " (->SCREAMING_SNAKE_CASE_STRING enum-value)))
+                    (:values (parse-enum t)))))
+
+(defn ^:private parse-union
   [{:keys [field/_parent type/doc type/deprecation]}]
   (cond-> {}
     doc         (assoc :description doc)
     deprecation (assoc :deprecated deprecation)
     _parent     (assoc :members (->> _parent (sort-by :field/name) parse-union-fields))))
+
+(defn ^:private parse-union-sdl [t]
+  (s/join " | " (map (fn [v]
+                       (->PascalCaseString v))
+                     (:members (parse-union t)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -158,11 +193,38 @@
                    f-m))
                m)))
 
+(defn ^:private reduce-type-fields-sdl [reserved-obj]
+  (fn [m {:keys [field/_parent] :as t}]
+    (str m (->> [(str "\n\ntype " reserved-obj " {")
+                 (str (parse-type-sdl t))
+                 "}"]
+                (s/join "\n")))))
+
 (defn ^:private reduce-type
   [m {:keys [type/name] :as t}]
   (assoc m
          (->PascalCaseKeyword name)
          (parse-type t)))
+
+(defn ^:private implements-sdl [implements]
+  (if (not (empty? implements))
+    (str " implements " (s/join " & " (map #(->PascalCaseString %) implements)))
+    ""))
+
+(defn ^:private reduce-type-sdl [def-id]
+  (fn [m {:keys [type/name] :as t}]
+    (let [{:keys [implements] :as parsed-type} (parse-type t)]
+      (str m (->> [(str "\n\n" def-id " " (->PascalCaseString name) (implements-sdl implements) " {")
+                   (str (parse-type-sdl t))
+                   "}"]
+                  (s/join "\n"))))))
+
+(defn ^:private reduce-interface-sdl
+  [m {:keys [type/name] :as t}]
+  (str m (->> [(str "\n\ninterface " (->PascalCaseString name) " {")
+               (str (parse-type-sdl t))
+               "}"]
+              (s/join "\n"))))
 
 (defn ^:private reduce-enum
   [m {:keys [type/name] :as t}]
@@ -170,11 +232,22 @@
          (->PascalCaseKeyword name)
          (parse-enum t)))
 
+(defn ^:private reduce-enum-sdl
+  [m {:keys [type/name] :as t}]
+  (str m (->> [(str "\n\nenum " (->PascalCaseString name) " {")
+               (str (parse-enum-sdl t))
+               "}"]
+              (s/join "\n"))))
+
 (defn ^:private reduce-union
   [m {:keys [type/name] :as t}]
   (assoc m
          (->PascalCaseKeyword name)
          (parse-union t)))
+
+(defn ^:private reduce-union-sdl
+  [m {:keys [type/name] :as t}]
+  (str m "\n\nunion " (->PascalCaseString name) " = " (parse-union-sdl t)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -207,49 +280,57 @@
              (not [?e :lacinia/mutation true])
              (not [?e :lacinia/subscription true])
              (not [?e :lacinia/input true])]
-    :reducer reduce-type}
+    :reducer-lacinia reduce-type
+    :reducer-sdl (reduce-type-sdl "type")}
 
    :interfaces
    {:where '[[?e :type/interface true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer reduce-type}
+    :reducer-lacinia reduce-type
+    :reducer-sdl reduce-interface-sdl}
 
    :enums
    {:where '[[?e :type/enum true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer reduce-enum}
+    :reducer-lacinia reduce-enum
+    :reducer-sdl reduce-enum-sdl}
 
    :unions
    {:where '[[?e :type/union true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer reduce-union}
+    :reducer-lacinia reduce-union
+    :reducer-sdl reduce-union-sdl}
 
    :input-objects
    {:where '[[?e :lacinia/input true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer reduce-type}
+    :reducer-lacinia reduce-type
+    :reducer-sdl (reduce-type-sdl "input")}
    
    :queries
    {:where '[[?e :lacinia/query true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer reduce-type-fields}
+    :reducer-lacinia reduce-type-fields
+    :reducer-sdl (reduce-type-fields-sdl "Query")}
 
    :mutations
    {:where '[[?e :lacinia/mutation true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer reduce-type-fields}
+    :reducer-lacinia reduce-type-fields
+    :reducer-sdl (reduce-type-fields-sdl "Mutation")}
 
    :subscriptions
    {:where '[[?e :lacinia/subscription true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer reduce-type-fields}})
+    :reducer-lacinia reduce-type-fields
+    :reducer-sdl (reduce-type-fields-sdl "Subscription")}})
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -257,85 +338,109 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn schema
-  [conn]
-  (reduce-kv (fn [m k {:keys [where reducer]}]
-               (let [types (find-and-pull selector where conn)]
-                 (if (empty? types)
-                   m
-                   (assoc m k (reduce (fn [m t]
-                                        (reducer m t))
-                                      {} types)))))
-             {} section-map))
+  ([conn]
+   (schema conn {:output :lacinia-schema}))
+  ([conn {:keys [output]}]
+   (case output
+     :lacinia-schema
+     (reduce-kv (fn [m k {:keys [where reducer-lacinia]}]
+                  (let [types (find-and-pull selector where conn)]
+                    (if (or (empty? types))
+                      m
+                      (assoc m k (reduce (fn [m t]
+                                           (reducer-lacinia m t))
+                                         {} types)))))
+                {} section-map)
+
+     :sdl
+     (s/trim
+      (reduce-kv (fn [m k {:keys [where reducer-sdl]}]
+                   (if reducer-sdl
+                     (let [types (find-and-pull selector where conn)]
+                       (if (or (empty? types))
+                         m
+                         (str m (reduce (fn [m t]
+                                          (reducer-sdl m t))
+                                        "" types))))
+                     m))
+                 "" section-map))
+     
+     )))
 
 (comment
-  (do
-    (require '[hodur-engine.core :as engine])
+  (require '[hodur-engine.core :as engine])
 
-    (def conn (engine/init-schema
-               '[^{:lacinia/tag true}
-                 default
+  (def conn (engine/init-schema
+             '[^{:lacinia/tag true}
+               default
 
-                 ^{:doc "A physical or virtual board game."}
-                 BoardGame
-                 [^ID id
-                  ^String name
-                  ^{:type String
-                    :optional true
-                    :doc "A one-line summary of the game."}
-                  summary
-                  ^{:type String
-                    :optional true
-                    :doc "A long-form description of the game."}
-                  description
-                  ^{:type Integer
-                    :optional true
-                    :doc "The minimum number of players the game supports."}
-                  min_players
-                  ^{:type Integer
-                    :optional true
-                    :doc "The maximum number of players the game supports."}
-                  max_players
-                  ^{:type Integer
-                    :optional true
-                    :doc "Play time, in minutes, for a typical game."}
-                  play-time
-                  ^{:type Float
-                    :lacinia/resolve :field/resolver}
-                  calculated-field]
+               ^{:doc "A physical or virtual board game."}
+               BoardGame
+               [^ID id
+                ^String name
+                ^{:type String
+                  :optional true
+                  :doc "A one-line summary of the game."}
+                summary
+                ^{:type String
+                  :optional true
+                  :doc "A long-form description of the game."}
+                description
+                ^{:type Integer
+                  :optional true
+                  :doc "The minimum number of players the game supports."}
+                min_players
+                ^{:type Integer
+                  :optional true
+                  :doc "The maximum number of players the game supports."}
+                max_players
+                ^{:type Integer
+                  :optional true
+                  :doc "Play time, in minutes, for a typical game."}
+                play-time
+                ^{:type Float
+                  :lacinia/resolve :field/resolver}
+                calculated-field]
 
-                 ^:interface
-                 Player
-                 [^String name]
+               ^:interface
+               Player
+               [^String name]
 
-                 ^:enum
-                 PlayerType
-                 [^{:doc "Yeah! Those"}
-                  AMERITRASH
-                  EUROPEAN]
+               ^{:implements Player}
+               PlayerImpl
+               [^String name
+                ^{:type DateTime
+                  :optional true} dob]
+               
+               ^:enum
+               PlayerType
+               [^{:doc "Yeah! Those"}
+                AMERITRASH
+                EUROPEAN]
 
-                 ^:union
-                 SearchResult
-                 [Player BoardGame]
+               ^:union
+               SearchResult
+               [Player BoardGame]
 
-                 ^:lacinia/input
-                 PlayerInput
-                 [^String name]
-                 
-                 ^:lacinia/query
-                 QueryRoot
-                 [^{:type BoardGame
-                    :optional true
-                    :doc "Access a BoardGame by its unique id, if it exists."
-                    :lacinia/resolve :query/game-by-id}
-                  game_by_id
-                  [^{:type ID
-                     :optional true
-                     :default 3} id]
-                  ^{:type SearchResult
-                    :cardinality [0 n]}
-                  search
-                  [^String term]]]))
+               ^:lacinia/input
+               PlayerInput
+               [^String name]
+               
+               ^:lacinia/query
+               QueryRoot
+               [^{:type BoardGame
+                  :optional true
+                  :doc "Access a BoardGame by its unique id, if it exists."
+                  :lacinia/resolve :query/game-by-id}
+                game_by_id
+                [^{:type ID
+                   :optional true
+                   :default 3} id]
+                ^{:type SearchResult
+                  :cardinality [0 n]}
+                search
+                [^String term]]]))
 
-    (def s (schema conn))
+  (def s (schema conn {:output :sdl}))
 
-    s))
+  (println s))
