@@ -230,23 +230,33 @@
 
 (defn ^:private implements-sdl [implements]
   (if (not (empty? implements))
-    (str " implements " (s/join " & " (map #(->PascalCaseString %) implements)))
+    (str " implements " (s/join " & " (map #(->PascalCaseString (:type/name %)) implements)))
     ""))
 
-(defn ^:private reduce-type-sdl [def-id]
-  (fn [m {:keys [type/name] :as t}]
-    (let [{:keys [implements] :as parsed-type} (parse-type t)]
-      (str m (->> [(str "\n\n" def-id " " (->PascalCaseString name) (implements-sdl implements) " {")
-                   (str (parse-type-sdl t))
-                   "}"]
-                  (s/join "\n"))))))
+(defn ^:private type-id [{:keys [type/interface lacinia/input]}]
+  (cond
+    interface "interface"
+    input "input"
+    :else "type"))
 
-(defn ^:private reduce-interface-sdl
-  [m {:keys [type/name] :as t}]
-  (str m (->> [(str "\n\ninterface " (->PascalCaseString name) " {")
+(defn ^:private reduce-type-sdl
+  [m {:keys [type/name type/implements] :as t}]
+  (str m (->> [(str "\n\n" (type-id t) " " (->PascalCaseString name) (implements-sdl implements) " {")
                (str (parse-type-sdl t))
                "}"]
               (s/join "\n"))))
+
+(defn ^:private reduce-special-types-sdl
+  [m {:keys [type/name lacinia/query lacinia/mutation lacinia/subscription] :as t}]
+  (let [special-key (cond
+                      query "query"
+                      mutation "mutation"
+                      subscription "subscription")]
+    (str m (->> ["" ""
+                 "schema {"
+                 (str "  " special-key ": " (->PascalCaseString name))
+                 "}"]
+                (s/join "\n")))))
 
 (defn ^:private reduce-type-documentation
   [m {:keys [type/name] :as t}]
@@ -317,10 +327,7 @@
              (not [?e :lacinia/mutation true])
              (not [?e :lacinia/subscription true])
              (not [?e :lacinia/input true])]
-    :reducer-lacinia reduce-type
-    :reducer-sdl (reduce-type-sdl "type")
-    :sdl-map-id :documentation
-    :reducer-sdl-map reduce-type-documentation}
+    :reducer-lacinia reduce-type}
 
    :interfaces
    {:where '[[?e :type/interface true]
@@ -333,48 +340,70 @@
    {:where '[[?e :type/enum true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer-lacinia reduce-enum
+    :reducer-lacinia reduce-enum}
+
+   :unions
+   {:where '[[?e :type/union true]
+             [?e :lacinia/tag true]
+             [?e :type/nature :user]]
+    :reducer-lacinia reduce-union}
+
+   :input-objects
+   {:where '[[?e :lacinia/input true]
+             [?e :lacinia/tag true]
+             [?e :type/nature :user]]
+    :reducer-lacinia reduce-type}
+   
+   :queries
+   {:where '[[?e :lacinia/query true]
+             [?e :lacinia/tag true]
+             [?e :type/nature :user]]
+    :reducer-lacinia reduce-type-fields}
+
+   :mutations
+   {:where '[[?e :lacinia/mutation true]
+             [?e :lacinia/tag true]
+             [?e :type/nature :user]]
+    :reducer-lacinia reduce-type-fields}
+
+   :subscriptions
+   {:where '[[?e :lacinia/subscription true]
+             [?e :lacinia/tag true]
+             [?e :type/nature :user]]
+    :reducer-lacinia reduce-type-fields}})
+
+
+(def ^:private sdl-section-map
+  {:types
+   {:where '[[?e :lacinia/tag true]
+             [?e :type/nature :user]
+             (not [?e :type/enum true])
+             (not [?e :type/union true])]
+    :reducer-sdl reduce-type-sdl
+    :sdl-map {:documentation-reducer reduce-type-documentation
+              :resolver-reducer reduce-type-resolvers-sdl-map}}
+
+   :enums
+   {:where '[[?e :type/enum true]
+             [?e :lacinia/tag true]
+             [?e :type/nature :user]]
     :reducer-sdl reduce-enum-sdl}
 
    :unions
    {:where '[[?e :type/union true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer-lacinia reduce-union
     :reducer-sdl reduce-union-sdl}
 
-   :input-objects
-   {:where '[[?e :lacinia/input true]
-             [?e :lacinia/tag true]
-             [?e :type/nature :user]]
-    :reducer-lacinia reduce-type
-    :reducer-sdl (reduce-type-sdl "input")}
-   
-   :queries
-   {:where '[[?e :lacinia/query true]
-             [?e :lacinia/tag true]
-             [?e :type/nature :user]]
-    :reducer-lacinia reduce-type-fields
-    :reducer-sdl (reduce-type-fields-sdl "Query")
-    :sdl-map-id :resolvers
-    :reducer-sdl-map (reduce-type-resolvers-sdl-map :Query)}
-
-   :mutations
-   {:where '[[?e :lacinia/mutation true]
-             [?e :lacinia/tag true]
-             [?e :type/nature :user]]
-    :reducer-lacinia reduce-type-fields
-    :reducer-sdl (reduce-type-fields-sdl "Mutation")
-    :sdl-map-id :resolvers
-    :reducer-sdl-map (reduce-type-resolvers-sdl-map :Mutation)}
-
-   :subscriptions
-   {:where '[[?e :lacinia/subscription true]
-             [?e :lacinia/tag true]
-             [?e :type/nature :user]]
-    :reducer-lacinia reduce-type-fields
-    :reducer-sdl (reduce-type-fields-sdl "Subscription")}})
-
+   :special-types
+   {:where '[[?e :lacinia/tag true]
+             [?e :type/nature :user]
+             (or [?e :lacinia/query true]
+                 [?e :lacinia/mutation true]
+                 [?e :lacinia/subscription true])
+             (not [?e :type/enum true])
+             (not [?e :type/union true])]
+    :reducer-sdl reduce-special-types-sdl}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public functions
@@ -400,13 +429,15 @@
       (reduce-kv (fn [m k {:keys [where reducer-sdl]}]
                    (if reducer-sdl
                      (let [types (find-and-pull selector where conn)]
+                       (println "======" k)
+                       (clojure.pprint/pprint types)
                        (if (empty? types)
                          m
                          (str m (reduce (fn [m t]
                                           (reducer-sdl m t))
                                         "" types))))
                      m))
-                 "" section-map))
+                 "" sdl-section-map))
      
      :sdl-map
      (reduce-kv (fn [m k {:keys [where sdl-map-id reducer-sdl-map]}]
