@@ -215,6 +215,13 @@
                  "}"]
                 (s/join "\n")))))
 
+(defn ^:private reduce-type-resolvers-sdl-map [id]
+  (fn [m {:keys [field/_parent] :as t}]
+    (assoc m id (reduce (fn [f-m [field-name {:keys [resolve]}]]
+                          (cond-> f-m
+                            resolve (assoc field-name resolve)))
+                        {} (:fields (parse-type t))))))
+
 (defn ^:private reduce-type
   [m {:keys [type/name] :as t}]
   (assoc m
@@ -240,6 +247,21 @@
                (str (parse-type-sdl t))
                "}"]
               (s/join "\n"))))
+
+(defn ^:private reduce-type-documentation
+  [m {:keys [type/name] :as t}]
+  (let [parsed-type (parse-type t)]
+    (reduce (fn [a [field-name {:keys [description]}]]
+              (cond-> a
+                description
+                (assoc (keyword (->PascalCaseString name)
+                                (->camelCaseString field-name))
+                       description)))
+            (cond-> m
+              (:description parsed-type)
+              (assoc (->PascalCaseKeyword name)
+                     (:description parsed-type)))
+            (:fields parsed-type))))
 
 (defn ^:private reduce-enum
   [m {:keys [type/name] :as t}]
@@ -296,7 +318,9 @@
              (not [?e :lacinia/subscription true])
              (not [?e :lacinia/input true])]
     :reducer-lacinia reduce-type
-    :reducer-sdl (reduce-type-sdl "type")}
+    :reducer-sdl (reduce-type-sdl "type")
+    :sdl-map-id :documentation
+    :reducer-sdl-map reduce-type-documentation}
 
    :interfaces
    {:where '[[?e :type/interface true]
@@ -331,14 +355,18 @@
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
     :reducer-lacinia reduce-type-fields
-    :reducer-sdl (reduce-type-fields-sdl "Query")}
+    :reducer-sdl (reduce-type-fields-sdl "Query")
+    :sdl-map-id :resolvers
+    :reducer-sdl-map (reduce-type-resolvers-sdl-map :Query)}
 
    :mutations
    {:where '[[?e :lacinia/mutation true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
     :reducer-lacinia reduce-type-fields
-    :reducer-sdl (reduce-type-fields-sdl "Mutation")}
+    :reducer-sdl (reduce-type-fields-sdl "Mutation")
+    :sdl-map-id :resolvers
+    :reducer-sdl-map (reduce-type-resolvers-sdl-map :Mutation)}
 
    :subscriptions
    {:where '[[?e :lacinia/subscription true]
@@ -372,7 +400,7 @@
       (reduce-kv (fn [m k {:keys [where reducer-sdl]}]
                    (if reducer-sdl
                      (let [types (find-and-pull selector where conn)]
-                       (if (or (empty? types))
+                       (if (empty? types)
                          m
                          (str m (reduce (fn [m t]
                                           (reducer-sdl m t))
@@ -380,7 +408,17 @@
                      m))
                  "" section-map))
      
-     )))
+     :sdl-map
+     (reduce-kv (fn [m k {:keys [where sdl-map-id reducer-sdl-map]}]
+                  (if (and sdl-map-id reducer-sdl-map)
+                    (let [types (find-and-pull selector where conn)]
+                      (if (empty? types)
+                        m
+                        (update m sdl-map-id #(reduce reducer-sdl-map
+                                                      % types))))
+                    m))
+                {:resolvers {}
+                 :documentation {}} section-map))))
 
 (comment
   (require '[hodur-engine.core :as engine])
@@ -420,12 +458,18 @@
                ^:interface
                Player
                [^String name]
-
+               
                ^{:implements Player}
                PlayerImpl
                [^String name
+                ^Float height [^{:type Unit
+                                 :default FEET} unit]
                 ^{:type DateTime
                   :optional true} dob]
+
+               ^:enum
+               Unit
+               [METERS FEET]
                
                ^:enum
                PlayerType
@@ -458,4 +502,5 @@
 
   (def s (schema conn {:output :sdl}))
 
+  #_(clojure.pprint/pprint s)
   (println s))
