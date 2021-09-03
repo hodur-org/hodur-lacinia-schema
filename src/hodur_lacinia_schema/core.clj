@@ -151,9 +151,24 @@
           (recur a' (first n') (next n'))
           a')))))
 
+(defn ^:private parse-args-sdl [{:keys [args]}]
+  (if (empty? args)
+    ""
+    (str "(" (s/join ", " (map (fn [[n {:keys [type default-value]}]]
+                                 (let [default-str (if default-value
+                                                     (if (string? default-value)
+                                                       (str " = \"" default-value "\"")
+                                                       (str " = " default-value))
+                                                     "")]
+                                   (str (->camelCaseString n)
+                                        ": "
+                                        (type-sdl-ref type)
+                                        default-str))) args)) ")")))
+
 (defn ^:private parse-type-sdl [t]
-  (s/join "\n" (map (fn [[n {:keys [type]}]]
-                      (str "  " (->camelCaseString n) ": " (type-sdl-ref type)))
+  (s/join "\n" (map (fn [[n {:keys [type] :as field}]]
+                      (str "  " (->camelCaseString n)
+                           (parse-args-sdl field) ": " (type-sdl-ref type)))
                     (:fields (parse-type t)))))
 
 (defn ^:private parse-enum
