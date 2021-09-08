@@ -151,10 +151,26 @@
           (recur a' (first n') (next n'))
           a')))))
 
+(defn ^:private directives-sdl [{:keys [directives] :as t}]
+  (->> directives
+       (map (fn [{:keys [directive-type directive-args]}]
+              (str "@" (name directive-type)
+                   (when directive-args
+                     (str "("
+                          (s/join ", "
+                                  (map (fn [[kf kv]]
+                                         (str (name kf) ": " (if (string? kv)
+                                                               (str "\"" kv "\"")
+                                                               (str kv))))
+                                       directive-args))
+                          ")")))))
+       (s/join " ")
+       (#(if (not (empty? %)) (str " " %) ""))))
+
 (defn ^:private parse-args-sdl [{:keys [args]}]
   (if (empty? args)
     ""
-    (str "(" (s/join ", " (map (fn [[n {:keys [type default-value]}]]
+    (str "(" (s/join ", " (map (fn [[n {:keys [type default-value] :as arg}]]
                                  (let [default-str (if default-value
                                                      (if (string? default-value)
                                                        (str " = \"" default-value "\"")
@@ -163,12 +179,13 @@
                                    (str (->camelCaseString n)
                                         ": "
                                         (type-sdl-ref type)
+                                        (directives-sdl arg)
                                         default-str))) args)) ")")))
 
 (defn ^:private parse-type-sdl [t]
   (s/join "\n" (map (fn [[n {:keys [type] :as field}]]
                       (str "  " (->camelCaseString n)
-                           (parse-args-sdl field) ": " (type-sdl-ref type)))
+                           (parse-args-sdl field) ": " (type-sdl-ref type) (directives-sdl field)))
                     (:fields (parse-type t)))))
 
 (defn ^:private parse-enum
@@ -180,8 +197,9 @@
     directives  (assoc :directives (->> directives parse-directives))))
 
 (defn ^:private parse-enum-sdl [t]
-  (s/join "\n" (map (fn [{:keys [enum-value]}]
-                      (str "  " (->SCREAMING_SNAKE_CASE_STRING enum-value)))
+  (s/join "\n" (map (fn [{:keys [enum-value] :as enum}]
+                      (str "  " (->SCREAMING_SNAKE_CASE_STRING enum-value)
+                           (directives-sdl enum)))
                     (:values (parse-enum t)))))
 
 (defn ^:private parse-union
@@ -241,7 +259,8 @@
 
 (defn ^:private reduce-type-sdl
   [m {:keys [type/name type/implements] :as t}]
-  (str m (->> [(str "\n\n" (type-id t) " " (->PascalCaseString name) (implements-sdl implements) " {")
+  (str m (->> [(str "\n\n" (type-id t) " " (->PascalCaseString name)
+                    (implements-sdl implements) (directives-sdl (parse-type t))" {")
                (str (parse-type-sdl t))
                "}"]
               (s/join "\n"))))
@@ -429,8 +448,6 @@
       (reduce-kv (fn [m k {:keys [where reducer-sdl]}]
                    (if reducer-sdl
                      (let [types (find-and-pull selector where conn)]
-                       (println "======" k)
-                       (clojure.pprint/pprint types)
                        (if (empty? types)
                          m
                          (str m (reduce (fn [m t]
@@ -488,15 +505,19 @@
 
                ^:interface
                Player
-               [^String name]
+               [^ID id
+                ^String name]
                
-               ^{:implements Player}
+               ^{:implements Player
+                 :lacinia/directives [{:key {:fields "id"}}]}
                PlayerImpl
-               [^String name
+               [^ID id
+                ^String name
                 ^Float height [^{:type Unit
                                  :default FEET} unit]
                 ^{:type DateTime
-                  :optional true} dob]
+                  :optional true
+                  :lacinia/directives [:important :external]} dob]
 
                ^:enum
                Unit
@@ -521,7 +542,11 @@
                [^{:type BoardGame
                   :optional true
                   :doc "Access a BoardGame by its unique id, if it exists."
-                  :lacinia/resolve :query/game-by-id}
+                  :lacinia/resolve :query/game-by-id
+                  :lacinia/directives [:external
+                                       {:roles {:type SPECIAL
+                                                :values [ADMIN READER]
+                                                :id 23}}]}
                 game_by_id
                 [^{:type ID
                    :optional true
