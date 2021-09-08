@@ -151,21 +151,24 @@
           (recur a' (first n') (next n'))
           a')))))
 
-(defn ^:private directives-sdl [{:keys [directives] :as t}]
-  (->> directives
-       (map (fn [{:keys [directive-type directive-args]}]
-              (str "@" (name directive-type)
-                   (when directive-args
-                     (str "("
-                          (s/join ", "
-                                  (map (fn [[kf kv]]
-                                         (str (name kf) ": " (if (string? kv)
-                                                               (str "\"" kv "\"")
-                                                               (str kv))))
-                                       directive-args))
-                          ")")))))
-       (s/join " ")
-       (#(if (not (empty? %)) (str " " %) ""))))
+(defn ^:private directives-sdl [{:keys [directives deprecated] :as t}]
+  (let [directives' (cond-> directives
+                      deprecated (conj {:directive-type :deprecated
+                                        :directive-args {:reason deprecated}}))]
+    (->> directives'
+         (map (fn [{:keys [directive-type directive-args]}]
+                (str "@" (name directive-type)
+                     (when directive-args
+                       (str "("
+                            (s/join ", "
+                                    (map (fn [[kf kv]]
+                                           (str (name kf) ": " (if (string? kv)
+                                                                 (str "\"" kv "\"")
+                                                                 (str kv))))
+                                         directive-args))
+                            ")")))))
+         (s/join " ")
+         (#(if (not (empty? %)) (str " " %) "")))))
 
 (defn ^:private parse-args-sdl [{:keys [args]}]
   (if (empty? args)
@@ -521,7 +524,8 @@
 
                ^:enum
                Unit
-               [METERS FEET]
+               [METERS
+                ^{:deprecation "No one should use imperial!"} FEET]
                
                ^:enum
                PlayerType
@@ -554,7 +558,8 @@
                 ^{:type SearchResult
                   :cardinality [0 n]}
                 search
-                [^String term]]]))
+                [^{:type String
+                   :deprecation "Don't use this anymore"} term]]]))
 
   (def s (schema conn {:output :sdl}))
 
