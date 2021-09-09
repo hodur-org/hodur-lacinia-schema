@@ -236,12 +236,12 @@
                  "}"]
                 (s/join "\n")))))
 
-(defn ^:private reduce-type-resolvers-sdl-map [id]
-  (fn [m {:keys [field/_parent] :as t}]
-    (assoc m id (reduce (fn [f-m [field-name {:keys [resolve]}]]
+(defn ^:private reduce-type-resolvers-sdl-map
+  [m {:keys [field/_parent] :as t}]
+  #_(assoc m id (reduce (fn [f-m [field-name {:keys [resolve]}]]
                           (cond-> f-m
                             resolve (assoc field-name resolve)))
-                        {} (:fields (parse-type t))))))
+                        {} (:fields (parse-type t)))))
 
 (defn ^:private reduce-type
   [m {:keys [type/name] :as t}]
@@ -280,7 +280,7 @@
                  "}"]
                 (s/join "\n")))))
 
-(defn ^:private reduce-type-documentation
+(defn ^:private reduce-type-documentation-sdl-map
   [m {:keys [type/name] :as t}]
   (let [parsed-type (parse-type t)]
     (reduce (fn [a [field-name {:keys [description]}]]
@@ -402,20 +402,24 @@
              (not [?e :type/enum true])
              (not [?e :type/union true])]
     :reducer-sdl reduce-type-sdl
-    :sdl-map {:documentation-reducer reduce-type-documentation
-              :resolver-reducer reduce-type-resolvers-sdl-map}}
+    :sdl-map {:documentation-reducer reduce-type-documentation-sdl-map
+              #_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
 
    :enums
    {:where '[[?e :type/enum true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer-sdl reduce-enum-sdl}
+    :reducer-sdl reduce-enum-sdl
+    :sdl-map {:documentation-reducer reduce-type-documentation-sdl-map
+              #_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
 
    :unions
    {:where '[[?e :type/union true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer-sdl reduce-union-sdl}
+    :reducer-sdl reduce-union-sdl
+    :sdl-map {:documentation-reducer reduce-type-documentation-sdl-map
+              #_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
 
    :special-types
    {:where '[[?e :lacinia/tag true]
@@ -460,18 +464,26 @@
                  "" sdl-section-map))
      
      :sdl-map
-     (reduce-kv (fn [m k {:keys [where sdl-map-id reducer-sdl-map]}]
-                  (if (and sdl-map-id reducer-sdl-map)
-                    (let [types (find-and-pull selector where conn)]
-                      (if (empty? types)
-                        m
-                        (update m sdl-map-id #(reduce reducer-sdl-map
-                                                      % types))))
-                    m))
-                {:resolvers {}
-                 :documentation {}} section-map))))
+     (reduce-kv (fn [m k {:keys [where sdl-map]}]
+                  (let [{:keys [documentation-reducer resolver-reducer streamer-reducer]} sdl-map
+                        types (find-and-pull selector where conn)]
+                    (cond-> m
+                      (and documentation-reducer (not (empty? types)))
+                      (update :documentation #(reduce documentation-reducer
+                                                      % types))
 
-(comment
+                      (and resolver-reducer (not (empty? types)))
+                      (update :resolvers #(reduce resolver-reducer
+                                                  % types))
+
+                      (and streamer-reducer (not (empty? types)))
+                      (update :streamers #(reduce streamer-reducer
+                                                  % types)))))
+                {:resolvers {}
+                 :streamers {}
+                 :documentation {}} sdl-section-map))))
+
+(do
   (require '[hodur-engine.core :as engine])
 
   (def conn (engine/init-schema
