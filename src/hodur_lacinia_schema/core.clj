@@ -170,24 +170,40 @@
          (s/join " ")
          (#(if (not (empty? %)) (str " " %) "")))))
 
+(defn ^:private tabulator-sdl [tab-size]
+  (s/join (repeat tab-size " ")))
+
+(defn ^:private doc-sdl [tab-size t]
+  (let [doc (or (:type/doc t) (:field/doc t) (:param/doc t) (:description t))
+        tab (tabulator-sdl tab-size)]
+    (if doc
+      (->> [(str tab "\"\"\"")
+            (str tab doc)
+            (str tab "\"\"\"")
+            tab]
+           (s/join "\n"))
+      tab)))
+
 (defn ^:private parse-args-sdl [{:keys [args]}]
   (if (empty? args)
     ""
-    (str "(" (s/join ", " (map (fn [[n {:keys [type default-value] :as arg}]]
-                                 (let [default-str (if default-value
-                                                     (if (string? default-value)
-                                                       (str " = \"" default-value "\"")
-                                                       (str " = " default-value))
-                                                     "")]
-                                   (str (->camelCaseString n)
-                                        ": "
-                                        (type-sdl-ref type)
-                                        (directives-sdl arg)
-                                        default-str))) args)) ")")))
+    (str "(\n" (s/join "\n" (map (fn [[n {:keys [type default-value] :as arg}]]
+                                   (let [default-str (if default-value
+                                                       (if (string? default-value)
+                                                         (str " = \"" default-value "\"")
+                                                         (str " = " default-value))
+                                                       "")]
+                                     (str (doc-sdl 4 arg)
+                                          (->camelCaseString n)
+                                          ": "
+                                          (type-sdl-ref type)
+                                          (directives-sdl arg)
+                                          default-str))) args))
+         "\n" (tabulator-sdl 2) ")")))
 
 (defn ^:private parse-type-sdl [t]
   (s/join "\n" (map (fn [[n {:keys [type] :as field}]]
-                      (str "  " (->camelCaseString n)
+                      (str (doc-sdl 2 field) (->camelCaseString n)
                            (parse-args-sdl field) ": " (type-sdl-ref type) (directives-sdl field)))
                     (:fields (parse-type t)))))
 
@@ -201,7 +217,8 @@
 
 (defn ^:private parse-enum-sdl [t]
   (s/join "\n" (map (fn [{:keys [enum-value] :as enum}]
-                      (str "  " (->SCREAMING_SNAKE_CASE_STRING enum-value)
+                      (str (doc-sdl 2 enum)
+                           (->SCREAMING_SNAKE_CASE_STRING enum-value)
                            (directives-sdl enum)))
                     (:values (parse-enum t)))))
 
@@ -229,13 +246,6 @@
                    f-m))
                m)))
 
-(defn ^:private reduce-type-fields-sdl [reserved-obj]
-  (fn [m {:keys [field/_parent] :as t}]
-    (str m (->> [(str "\n\ntype " reserved-obj " {")
-                 (str (parse-type-sdl t))
-                 "}"]
-                (s/join "\n")))))
-
 (defn ^:private reduce-type-resolvers-sdl-map
   [m {:keys [field/_parent] :as t}]
   #_(assoc m id (reduce (fn [f-m [field-name {:keys [resolve]}]]
@@ -262,7 +272,7 @@
 
 (defn ^:private reduce-type-sdl
   [m {:keys [type/name type/implements] :as t}]
-  (str m (->> [(str "\n\n" (type-id t) " " (->PascalCaseString name)
+  (str m (->> [(str "\n\n" (doc-sdl 0 t) (type-id t) " " (->PascalCaseString name)
                     (implements-sdl implements) (directives-sdl (parse-type t))" {")
                (str (parse-type-sdl t))
                "}"]
@@ -483,7 +493,7 @@
                  :streamers {}
                  :documentation {}} sdl-section-map))))
 
-(do
+(comment
   (require '[hodur-engine.core :as engine])
 
   (def conn (engine/init-schema
@@ -571,7 +581,10 @@
                   :cardinality [0 n]}
                 search
                 [^{:type String
-                   :deprecation "Don't use this anymore"} term]]]))
+                   :deprecation "Don't use this anymore"} term
+                 ^{:type String
+                   :optional true
+                   :doc "Cool arg doc"} cool-arg]]]))
 
   (def s (schema conn {:output :sdl}))
 
