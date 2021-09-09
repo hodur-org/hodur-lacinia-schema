@@ -412,24 +412,21 @@
              (not [?e :type/enum true])
              (not [?e :type/union true])]
     :reducer-sdl reduce-type-sdl
-    :sdl-map {:documentation-reducer reduce-type-documentation-sdl-map
-              #_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
+    :sdl-map {#_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
 
    :enums
    {:where '[[?e :type/enum true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
     :reducer-sdl reduce-enum-sdl
-    :sdl-map {:documentation-reducer reduce-type-documentation-sdl-map
-              #_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
+    :sdl-map {#_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
 
    :unions
    {:where '[[?e :type/union true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
     :reducer-sdl reduce-union-sdl
-    :sdl-map {:documentation-reducer reduce-type-documentation-sdl-map
-              #_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
+    :sdl-map {#_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
 
    :special-types
    {:where '[[?e :lacinia/tag true]
@@ -475,13 +472,9 @@
      
      :sdl-map
      (reduce-kv (fn [m k {:keys [where sdl-map]}]
-                  (let [{:keys [documentation-reducer resolver-reducer streamer-reducer]} sdl-map
+                  (let [{:keys [resolver-reducer streamer-reducer]} sdl-map
                         types (find-and-pull selector where conn)]
                     (cond-> m
-                      (and documentation-reducer (not (empty? types)))
-                      (update :documentation #(reduce documentation-reducer
-                                                      % types))
-
                       (and resolver-reducer (not (empty? types)))
                       (update :resolvers #(reduce resolver-reducer
                                                   % types))
@@ -490,8 +483,8 @@
                       (update :streamers #(reduce streamer-reducer
                                                   % types)))))
                 {:resolvers {}
-                 :streamers {}
-                 :documentation {}} sdl-section-map))))
+                 :streamers {}}
+                sdl-section-map))))
 
 (comment
   (require '[hodur-engine.core :as engine])
