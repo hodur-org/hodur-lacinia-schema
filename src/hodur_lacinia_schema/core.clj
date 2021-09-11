@@ -285,17 +285,22 @@
                "}"]
               (s/join "\n"))))
 
+(defn ^:private initializer-special-types-sdl []
+  (->> ["" ""
+        "schema {"]
+       (s/join "\n")))
+
+(defn ^:private finisher-special-types-sdl []
+  (->> ["" "}"]
+       (s/join "\n")))
+
 (defn ^:private reduce-special-types-sdl
   [m {:keys [type/name lacinia/query lacinia/mutation lacinia/subscription] :as t}]
   (let [special-key (cond
                       query "query"
                       mutation "mutation"
                       subscription "subscription")]
-    (str m (->> ["" ""
-                 "schema {"
-                 (str "  " special-key ": " (->PascalCaseString name))
-                 "}"]
-                (s/join "\n")))))
+    (str m (str "\n  " special-key ": " (->PascalCaseString name)))))
 
 (defn ^:private reduce-type-documentation-sdl-map
   [m {:keys [type/name] :as t}]
@@ -440,6 +445,8 @@
              (not [?e :type/enum true])
              (not [?e :type/union true])]
     :reducer-sdl reduce-special-types-sdl
+    :sdl-initializer initializer-special-types-sdl
+    :sdl-finisher finisher-special-types-sdl
     :sdl-map {:resolver-reducer reduce-type-resolvers-sdl-map}}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -463,14 +470,18 @@
 
      :sdl
      (s/trim
-      (reduce-kv (fn [m k {:keys [where reducer-sdl]}]
+      (reduce-kv (fn [m k {:keys [where reducer-sdl sdl-initializer sdl-finisher]
+                           :or {sdl-initializer (constantly "")
+                                sdl-finisher (constantly "")}}]
                    (if reducer-sdl
                      (let [types (find-and-pull selector where conn)]
                        (if (empty? types)
                          m
-                         (str m (reduce (fn [m t]
-                                          (reducer-sdl m t))
-                                        "" types))))
+                         (str m
+                              (sdl-initializer)
+                              (reduce reducer-sdl
+                                      "" types)
+                              (sdl-finisher))))
                      m))
                  "" sdl-section-map))
      
@@ -529,7 +540,7 @@
                Player
                [^ID id
                 ^String name]
-               
+
                ^{:implements Player
                  :lacinia/directives [{:key {:fields "id"}}]}
                PlayerImpl
@@ -559,7 +570,7 @@
                ^:lacinia/input
                PlayerInput
                [^String name]
-               
+
                ^:lacinia/query
                QueryRoot
                [^{:type BoardGame
@@ -581,9 +592,13 @@
                    :deprecation "Don't use this anymore"} term
                  ^{:type String
                    :optional true
-                   :doc "Cool arg doc"} cool-arg]]]))
+                   :doc "Cool arg doc"} cool-arg]]
 
-  (def s (schema conn {:output :sdl-map}))
+               ^:lacinia/mutation
+               MutationRoot
+               [^Boolean reset]]))
 
-  (clojure.pprint/pprint s)
-  #_(println s))
+  (def s (schema conn {:output :sdl}))
+
+  #_(clojure.pprint/pprint s)
+  (println s))
