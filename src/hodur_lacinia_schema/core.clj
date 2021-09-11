@@ -365,8 +365,7 @@
    {:where '[[?e :type/interface true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer-lacinia reduce-type
-    :reducer-sdl reduce-interface-sdl}
+    :reducer-lacinia reduce-type}
 
    :enums
    {:where '[[?e :type/enum true]
