@@ -247,11 +247,18 @@
                m)))
 
 (defn ^:private reduce-type-resolvers-sdl-map
-  [m {:keys [field/_parent] :as t}]
-  #_(assoc m id (reduce (fn [f-m [field-name {:keys [resolve]}]]
+  [m {:keys [lacinia/query lacinia/mutation lacinia/subscription
+             field/_parent] :as t}]
+  (let [id (cond
+             query :Query
+             mutation :Mutation
+             subscription :Subscription)]
+    (assoc m id (reduce (fn [f-m {:keys [field/camelCaseName
+                                         lacinia/resolve lacinia/stream]}]
                           (cond-> f-m
-                            resolve (assoc field-name resolve)))
-                        {} (:fields (parse-type t)))))
+                            resolve (assoc camelCaseName resolve)
+                            stream (assoc camelCaseName stream)))
+                        {} (->> _parent (sort-by :field/name))))))
 
 (defn ^:private reduce-type
   [m {:keys [type/name] :as t}]
@@ -410,22 +417,19 @@
              [?e :type/nature :user]
              (not [?e :type/enum true])
              (not [?e :type/union true])]
-    :reducer-sdl reduce-type-sdl
-    :sdl-map {#_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
+    :reducer-sdl reduce-type-sdl}
 
    :enums
    {:where '[[?e :type/enum true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer-sdl reduce-enum-sdl
-    :sdl-map {#_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
+    :reducer-sdl reduce-enum-sdl}
 
    :unions
    {:where '[[?e :type/union true]
              [?e :lacinia/tag true]
              [?e :type/nature :user]]
-    :reducer-sdl reduce-union-sdl
-    :sdl-map {#_:resolver-reducer #_reduce-type-resolvers-sdl-map}}
+    :reducer-sdl reduce-union-sdl}
 
    :special-types
    {:where '[[?e :lacinia/tag true]
@@ -435,7 +439,8 @@
                  [?e :lacinia/subscription true])
              (not [?e :type/enum true])
              (not [?e :type/union true])]
-    :reducer-sdl reduce-special-types-sdl}})
+    :reducer-sdl reduce-special-types-sdl
+    :sdl-map {:resolver-reducer reduce-type-resolvers-sdl-map}}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public functions
@@ -578,7 +583,7 @@
                    :optional true
                    :doc "Cool arg doc"} cool-arg]]]))
 
-  (def s (schema conn {:output :sdl}))
+  (def s (schema conn {:output :sdl-map}))
 
-  #_(clojure.pprint/pprint s)
-  (println s))
+  (clojure.pprint/pprint s)
+  #_(println s))
