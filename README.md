@@ -123,6 +123,9 @@ Lacinia's `com.walmartlabs.lacinia.util/attach-resolvers` function
                            schema/compile))
 ```
 
+You can also use `com.walmartlabs.lacinia.util/inject-resolvers`
+instead if you prefer to keep your schema free of resolver markers.
+
 ## Model Definition
 
 All Hodur plugins follow the [Model
@@ -192,6 +195,13 @@ Streamers are defined by using the marker `:lacinia/stream`:
       :lacinia/stream :person/stream}
     listen-to-person [^ID id]]]
 ```
+
+Both resolvers and streamers can also be attached to your Lacinia
+schema much later using
+`com.walmartlabs.lacinia.util/inject-resolvers` and
+`com.walmartlabs.lacinia.util/inject-streamers` instead. This is ideal
+if you prefer to keep your schema free of resolver and streamer
+markers.
 
 ## Interfaces, Unions, and Enums
 
