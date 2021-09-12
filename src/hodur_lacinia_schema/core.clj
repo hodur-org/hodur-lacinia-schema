@@ -146,7 +146,7 @@
                       [(str a (type-sdl-ref (first n)) "!") (next n)]
 
                       :else
-                      [(str a (->PascalCaseString i)) n])]
+                      [(str a (name i)) n])]
         (if n'
           (recur a' (first n') (next n'))
           a')))))
@@ -501,7 +501,7 @@
                  :streamers {}}
                 sdl-section-map))))
 
-(comment
+(do
   (require '[hodur-engine.core :as engine])
 
   (def conn (engine/init-schema
