@@ -277,6 +277,29 @@ arguments. I.e. consider marking the `id` field with hypothetical
   ^{:type Float}  salary]]
 ```
 
+## Schema Definition Language (SDL)
+
+GraphQL Spec defines a [Schema Definition
+Language](http://spec.graphql.org/June2018/#sec-Schema) and this
+Lacinia plugin for Hodur supports it as a target format instead of the
+default Lacinia schema format.
+
+In order to use that, pass an additional map with `{:output :sdl}` to
+the `schema` function. It will return the SDL as a string:
+
+``` clojure
+(def sdl-schema (hodur-lacinia/schema meta-db {:output :sdl}))
+```
+
+The SDL might be useful if you don't want to or can't use Lacinia or
+if you prefer to [bootstrap your Lacinia server with an SDL
+instead](https://lacinia.readthedocs.io/en/latest/schema/parsing.html)..
+
+In fact, in order to enable [Apollo GraphQL
+Federation](https://www.apollographql.com/docs/federation/) with
+Lacinia, at this time [only initializing it with a schema defined in
+Schema Definition Language is
+supported](https://lacinia.readthedocs.io/en/latest/federation/index.html)..
 
 ## Bugs
 
