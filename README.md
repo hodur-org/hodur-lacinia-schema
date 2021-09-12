@@ -61,7 +61,7 @@ of your model to the `deps.edn` file:
 
 ``` clojure
   {:deps {hodur/engine         {:mvn/version "0.1.7"}
-          hodur/lacinia-schema {:mvn/version "0.1.3"}}}
+          hodur/lacinia-schema {:mvn/version "0.2.0"}}}
 ```
 
 You should `require` it any way you see fit:
