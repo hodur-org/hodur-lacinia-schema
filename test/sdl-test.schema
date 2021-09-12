@@ -1,0 +1,86 @@
+input PlayerInput {
+  name: String!
+}
+
+type PlayerImpl implements Player @key(fields: "id") {
+  dob: String @important @external
+  height(
+    unit: Unit! = FEET
+  ): Float!
+  id: ID!
+  name: String!
+}
+
+type QueryRoot {
+  """
+  Access a BoardGame by its unique id, if it exists.
+  """
+  gameById(
+    id: ID = 3
+  ): BoardGame @external @roles(type: SPECIAL, values: [ADMIN READER], id: 23)
+  search(
+    """
+    Cool arg doc
+    """
+    coolArg: String
+    term: String! @deprecated(reason: "Don't use this anymore")
+  ): [SearchResult!]!
+}
+
+"""
+A physical or virtual board game.
+"""
+type BoardGame {
+  calculatedField: Float!
+  """
+  A long-form description of the game.
+  """
+  description: String
+  id: ID!
+  """
+  The maximum number of players the game supports.
+  """
+  maxPlayers: Int
+  """
+  The minimum number of players the game supports.
+  """
+  minPlayers: Int
+  name: String!
+  """
+  Play time, in minutes, for a typical game.
+  """
+  playTime: Int
+  """
+  A one-line summary of the game.
+  """
+  summary: String
+}
+
+type MutationRoot {
+  reset: Boolean!
+}
+
+interface Player {
+  id: ID!
+  name: String!
+}
+
+enum Unit {
+  FEET @deprecated(reason: "No one should use imperial!")
+  METERS
+}
+
+enum PlayerType {
+  """
+  Yeah! Those
+  """
+  AMERITRASH
+  EUROPEAN
+}
+
+union SearchResult = BoardGame | Player
+
+schema {
+  query: QueryRoot
+  mutation: MutationRoot
+}

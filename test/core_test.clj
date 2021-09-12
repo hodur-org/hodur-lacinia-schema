@@ -1,5 +1,6 @@
 (ns core-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.edn :as edn]
+            [clojure.test :refer :all]
             [hodur-engine.core :as engine]
             [hodur-lacinia-schema.core :as lacinia]))
 
@@ -321,3 +322,12 @@
                :directives
                [{:directive-type :foo}]}}}
            s))))
+
+(deftest test-sdl
+  (let [conn (-> "test/sdl-test.edn"
+                 slurp
+                 edn/read-string
+                 engine/init-schema)
+        s (-> conn (lacinia/schema {:output :sdl}))
+        s-target (slurp "test/sdl-test.schema")]
+    (is (= s-target s))))

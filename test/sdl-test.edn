@@ -1,0 +1,92 @@
+[^{:lacinia/tag true}
+ default
+
+ ^{:doc "A physical or virtual board game."}
+ BoardGame
+ [^ID id
+  ^String name
+  ^{:type String
+    :optional true
+    :doc "A one-line summary of the game."}
+  summary
+  ^{:type String
+    :optional true
+    :doc "A long-form description of the game."}
+  description
+  ^{:type Integer
+    :optional true
+    :doc "The minimum number of players the game supports."}
+  min_players
+  ^{:type Integer
+    :optional true
+    :doc "The maximum number of players the game supports."}
+  max_players
+  ^{:type Integer
+    :optional true
+    :doc "Play time, in minutes, for a typical game."}
+  play-time
+  ^{:type Float
+    :lacinia/resolve :field/resolver}
+  calculated-field]
+
+ ^:interface
+ Player
+ [^ID id
+  ^String name]
+
+ ^{:implements Player
+   :lacinia/directives [{:key {:fields "id"}}]}
+ PlayerImpl
+ [^ID id
+  ^String name
+  ^Float height [^{:type Unit
+                   :default FEET} unit]
+  ^{:type DateTime
+    :optional true
+    :lacinia/directives [:important :external]} dob]
+
+ ^:enum
+ Unit
+ [METERS
+  ^{:deprecation "No one should use imperial!"} FEET]
+ 
+ ^:enum
+ PlayerType
+ [^{:doc "Yeah! Those"}
+  AMERITRASH
+  EUROPEAN]
+
+ ^:union
+ SearchResult
+ [Player BoardGame]
+
+ ^:lacinia/input
+ PlayerInput
+ [^String name]
+
+ ^:lacinia/query
+ QueryRoot
+ [^{:type BoardGame
+    :optional true
+    :doc "Access a BoardGame by its unique id, if it exists."
+    :lacinia/resolve :query/game-by-id
+    :lacinia/directives [:external
+                         {:roles {:type SPECIAL
+                                  :values [ADMIN READER]
+                                  :id 23}}]}
+  game_by_id
+  [^{:type ID
+     :optional true
+     :default 3} id]
+  ^{:type SearchResult
+    :cardinality [0 n]}
+  search
+  [^{:type String
+     :deprecation "Don't use this anymore"} term
+   ^{:type String
+     :optional true
+     :doc "Cool arg doc"} cool-arg]]
+
+ ^:lacinia/mutation
+ MutationRoot
+ [^Boolean reset]]
