@@ -246,20 +246,6 @@
                    f-m))
                m)))
 
-(defn ^:private reduce-type-resolvers-sdl-map
-  [m {:keys [lacinia/query lacinia/mutation lacinia/subscription
-             field/_parent] :as t}]
-  (let [id (cond
-             query :Query
-             mutation :Mutation
-             subscription :Subscription)]
-    (assoc m id (reduce (fn [f-m {:keys [field/camelCaseName
-                                         lacinia/resolve lacinia/stream]}]
-                          (cond-> f-m
-                            resolve (assoc camelCaseName resolve)
-                            stream (assoc camelCaseName stream)))
-                        {} (->> _parent (sort-by :field/name))))))
-
 (defn ^:private reduce-type
   [m {:keys [type/name] :as t}]
   (assoc m
@@ -301,21 +287,6 @@
                       mutation "mutation"
                       subscription "subscription")]
     (str m (str "\n  " special-key ": " (->PascalCaseString name)))))
-
-(defn ^:private reduce-type-documentation-sdl-map
-  [m {:keys [type/name] :as t}]
-  (let [parsed-type (parse-type t)]
-    (reduce (fn [a [field-name {:keys [description]}]]
-              (cond-> a
-                description
-                (assoc (keyword (->PascalCaseString name)
-                                (->camelCaseString field-name))
-                       description)))
-            (cond-> m
-              (:description parsed-type)
-              (assoc (->PascalCaseKeyword name)
-                     (:description parsed-type)))
-            (:fields parsed-type))))
 
 (defn ^:private reduce-enum
   [m {:keys [type/name] :as t}]
@@ -446,8 +417,7 @@
              (not [?e :type/union true])]
     :reducer-sdl reduce-special-types-sdl
     :sdl-initializer initializer-special-types-sdl
-    :sdl-finisher finisher-special-types-sdl
-    :sdl-map {:resolver-reducer reduce-type-resolvers-sdl-map}}})
+    :sdl-finisher finisher-special-types-sdl}})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Public functions
@@ -483,25 +453,9 @@
                                       "" types)
                               (sdl-finisher))))
                      m))
-                 "" sdl-section-map))
-     
-     :sdl-map
-     (reduce-kv (fn [m k {:keys [where sdl-map]}]
-                  (let [{:keys [resolver-reducer streamer-reducer]} sdl-map
-                        types (find-and-pull selector where conn)]
-                    (cond-> m
-                      (and resolver-reducer (not (empty? types)))
-                      (update :resolvers #(reduce resolver-reducer
-                                                  % types))
+                 "" sdl-section-map)))))
 
-                      (and streamer-reducer (not (empty? types)))
-                      (update :streamers #(reduce streamer-reducer
-                                                  % types)))))
-                {:resolvers {}
-                 :streamers {}}
-                sdl-section-map))))
-
-(do
+(comment
   (require '[hodur-engine.core :as engine])
 
   (def conn (engine/init-schema
