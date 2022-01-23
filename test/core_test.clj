@@ -1,5 +1,6 @@
 (ns core-test
   (:require [clojure.edn :as edn]
+            [clojure.string :as s]
             [clojure.test :refer :all]
             [hodur-engine.core :as engine]
             [hodur-lacinia-schema.core :as lacinia]))
@@ -330,7 +331,9 @@
                  edn/read-string
                  engine/init-schema)
         s (-> conn (lacinia/schema {:output :sdl}))
-        s-target (slurp "test/sdl-test.schema")]
+        s-target (-> "test/sdl-test.schema"
+                     slurp
+                     (s/replace #"\r\n" "\n"))]
     (is (= s-target s))))
 
 
