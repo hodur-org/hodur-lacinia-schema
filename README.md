@@ -1,5 +1,5 @@
-[circleci-badge]: https://circleci.com/gh/hodur-org/hodur-lacinia-schema.svg?style=shield&circle-token=86a1a26155a45d7ec4aba873e975b15ce37d1f5a
-[circleci]: https://circleci.com/gh/hodur-org/hodur-lacinia-schema
+[ci-badge]: https://github.com/hodur-org/hodur-lacinia-schema/actions/workflows/test.yml/badge.svg
+[ci-link]: https://github.com/hodur-org/hodur-lacinia-schema/actions/workflows/test.yml
 [clojars-badge]: https://img.shields.io/clojars/v/hodur/lacinia-schema.svg
 [clojars]: http://clojars.org/hodur/lacinia-schema
 [github-issues]: https://github.com/hodur-org/hodur-lacinia-schema/issues
@@ -19,7 +19,7 @@
 
 # Hodur Lacinia Schema
 
-[![CircleCI][circleci-badge]][circleci]
+[![CI][ci-badge]][ci-link]
 [![Clojars][hodur-engine-clojars-badge]][hodur-engine-clojars]
 [![Clojars][clojars-badge]][clojars]
 [![License][license-badge]][license]
