@@ -1,5 +1,6 @@
 (ns hodur-lacinia-schema.core
-  (:require [camel-snake-kebab.core :refer [->camelCaseKeyword
+  (:require [anomalies.core :as anom]
+            [camel-snake-kebab.core :refer [->camelCaseKeyword
                                             ->PascalCaseKeyword
                                             ->SCREAMING_SNAKE_CASE_KEYWORD
                                             ->camelCaseString

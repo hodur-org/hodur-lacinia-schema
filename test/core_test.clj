@@ -181,12 +181,12 @@
                              [^String meow]
 
                              ^{:implements Animal}
-                             Doc
+                             Dog
                              [^String bark]])]
     (is (= '{:objects
              {:Cat {:implements [:Animal]
                     :fields {:meow {:type (non-null String)}}}
-              :Doc {:implements [:Animal]
+              :Dog {:implements [:Animal]
                     :fields {:bark {:type (non-null String)}}}}
              :interfaces {:Animal {:fields {:name {:type (non-null String)}}}}}
            s))))
@@ -200,7 +200,7 @@
                              Cat
                              [^String meow]
 
-                             Doc
+                             Dog
                              [^String bark]
 
                              ^:union
@@ -208,7 +208,7 @@
                              [Cat Dog]])]
     (is (= '{:objects
              {:Cat {:fields {:meow {:type (non-null String)}}}
-              :Doc {:fields {:bark {:type (non-null String)}}}}
+              :Dog {:fields {:bark {:type (non-null String)}}}}
              :unions {:SearchResults {:members [:Cat :Dog]}}}
            s))))
 
@@ -250,7 +250,7 @@
                              Person
                              [^ID id
                               ^String name]
-                             
+
                              ^:lacinia/subscription
                              SubscriptionRoot
                              [^{:type Person
