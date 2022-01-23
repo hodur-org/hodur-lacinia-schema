@@ -60,8 +60,8 @@ add `hodur/lacinia-schema`, a plugin that creates Lacinia Schemas out
 of your model to the `deps.edn` file:
 
 ``` clojure
-  {:deps {hodur/engine         {:mvn/version "0.1.7"}
-          hodur/lacinia-schema {:mvn/version "0.2.0"}}}
+  {:deps {hodur/engine         {:mvn/version "0.1.9"}
+          hodur/lacinia-schema {:mvn/version "0.2.1"}}}
 ```
 
 You should `require` it any way you see fit:
