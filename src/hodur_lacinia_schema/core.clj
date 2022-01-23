@@ -45,11 +45,15 @@
       inner-type)))
 
 (defn ^:private get-field-type
-  [{:keys [field/optional field/type field/cardinality]}]
+  [{:keys [field/optional field/type field/cardinality field/name]}]
+  (when (and (nil? (:type/name type)) (nil? (:type/nature type)))
+    (anom/throw-anom (str "Invalid type reference for field " name)))
   (get-full-type type optional cardinality))
 
 (defn ^:private get-param-type
-  [{:keys [param/optional param/type param/cardinality]}]
+  [{:keys [param/optional param/type param/cardinality param/name]}]
+  (when (and (nil? (:type/name type)) (nil? (:type/nature type)))
+    (anom/throw-anom (str "Invalid type reference for param " name)))
   (get-full-type type optional cardinality))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -323,6 +323,7 @@
                [{:directive-type :foo}]}}}
            s))))
 
+
 (deftest test-sdl
   (let [conn (-> "test/sdl-test.edn"
                  slurp
@@ -331,3 +332,20 @@
         s (-> conn (lacinia/schema {:output :sdl}))
         s-target (slurp "test/sdl-test.schema")]
     (is (= s-target s))))
+
+
+(deftest invalid-type-refs
+  (testing "field case"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (schema->lacinia '[^{:lacinia/tag true}
+                                    default
+
+                                    Person
+                                    [^Boss boss]]))))
+  (testing "param case"
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (schema->lacinia '[^{:lacinia/tag true}
+                                    default
+
+                                    Person
+                                    [^Integer height [^Unit unit]]])))))
